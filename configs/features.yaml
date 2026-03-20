@@ -1,0 +1,22 @@
+consistency:
+  core_document_flags:
+    - FLAG_DOCUMENT_2
+    - FLAG_DOCUMENT_3
+    - FLAG_DOCUMENT_4
+    - FLAG_DOCUMENT_5
+    - FLAG_DOCUMENT_6
+  contact_flags:
+    - FLAG_MOBIL
+    - FLAG_EMP_PHONE
+    - FLAG_WORK_PHONE
+    - FLAG_CONT_MOBILE
+    - FLAG_PHONE
+    - FLAG_EMAIL
+  employed_birth_ratio_threshold: 0.8
+velocity:
+  inquiry_day_threshold: 2
+  inquiry_week_threshold: 4
+  burst_same_day_threshold: 3
+cashout:
+  severe_fpd_days: 30
+  heavy_atm_ratio: 0.8

@@ -1,0 +1,27 @@
+project_name: credit-risk-poc
+random_seed: 42
+raw_data_dir: data/raw/home-credit-default-risk
+interim_dir: data/interim
+processed_dir: data/processed
+report_dir: outputs/reports
+model_dir: outputs/models
+feature_dir: outputs/features
+train_file: application_train.csv
+chunk_size: 250000
+topk_fraction: 0.05
+validation_size: 0.2
+negative_day_windows:
+  - 7
+  - 30
+  - 90
+feature_selection:
+  missing_rate_threshold: 0.85
+  near_constant_threshold: 0.99
+  min_non_null: 1000
+  min_unique: 2
+  weak_signal_auc_band: 0.02
+  topk_fraction: 0.05
+  correlation_threshold: 0.80
+  extreme_correlation_threshold: 0.95
+  winsorize_quantile: 0.99
+  max_metric_drop_tolerance: 0.02

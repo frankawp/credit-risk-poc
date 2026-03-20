@@ -1,0 +1,7 @@
+interface:
+  display_name: "特征筛选解释"
+  short_description: "解释变量为什么被保留、删除或吸收"
+  default_prompt: "请使用 $feature-mining-selection-interpreter 解释为什么某个特征被筛掉。"
+
+policy:
+  allow_implicit_invocation: true

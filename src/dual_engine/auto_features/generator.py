@@ -17,6 +17,15 @@ class AutoFeatureResult:
     feature_names: List[str]
 
 
+def _drop_target_derived_features(frame: pd.DataFrame, feature_names: list[str]) -> tuple[pd.DataFrame, list[str]]:
+    leakage_names = [name for name in feature_names if "TARGET" in name and name != "TARGET"]
+    if not leakage_names:
+        return frame, feature_names
+    filtered_frame = frame.drop(columns=leakage_names, errors="ignore")
+    filtered_names = [name for name in feature_names if name not in leakage_names]
+    return filtered_frame, filtered_names
+
+
 def generate_auto_features(
     config: AutoFeatureConfig,
     output_dir: Path,
@@ -40,6 +49,7 @@ def generate_auto_features(
 
     frame = feature_matrix.reset_index()
     names = [f.get_name() for f in feature_defs]
+    frame, names = _drop_target_derived_features(frame, names)
 
     frame.to_parquet(output_dir / "auto_feature_matrix.parquet", index=False)
     pd.DataFrame(

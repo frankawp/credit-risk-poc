@@ -1,0 +1,7 @@
+interface:
+  display_name: "语义变量探索"
+  short_description: "围绕反欺诈主题设计可落地的语义变量"
+  default_prompt: "请使用 $feature-mining-semantic-ideation 帮我从 velocity 方向扩一批反欺诈变量。"
+
+policy:
+  allow_implicit_invocation: true

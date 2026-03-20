@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 import pandas as pd
 
@@ -55,9 +56,14 @@ def _load_frames(raw_dir: Path) -> dict[str, pd.DataFrame]:
     }
 
 
-def generate_semantic_features(paths: EnginePaths, output_dir: Path) -> SemanticFeatureResult:
+def generate_semantic_features(
+    paths: EnginePaths,
+    output_dir: Path,
+    themes: Iterable[str] | None = None,
+) -> SemanticFeatureResult:
     output_dir.mkdir(parents=True, exist_ok=True)
     frames = _load_frames(paths.raw_dir)
+    requested = None if themes is None else [theme.strip().lower() for theme in themes]
 
     app = frames["application_train"]
     previous = frames["previous_application"]
@@ -66,15 +72,18 @@ def generate_semantic_features(paths: EnginePaths, output_dir: Path) -> Semantic
     installments = frames["installments_payments"]
 
     anchor = app[["SK_ID_CURR", "TARGET"]].drop_duplicates().copy()
-    consistency = build_consistency_features(app, previous)
-    velocity = build_velocity_features(previous, bureau)
-    cashout = build_cashout_features(previous, credit_card, installments)
+    feature_frames = {
+        "consistency": build_consistency_features(app, previous),
+        "velocity": build_velocity_features(previous, bureau),
+        "cashout": build_cashout_features(previous, credit_card, installments),
+    }
+    selected_themes = list(feature_frames.keys()) if requested is None else [theme for theme in requested if theme in feature_frames]
 
-    semantic = anchor.merge(consistency, on="SK_ID_CURR", how="left")
-    semantic = semantic.merge(velocity, on="SK_ID_CURR", how="left")
-    semantic = semantic.merge(cashout, on="SK_ID_CURR", how="left")
+    semantic = anchor.copy()
+    for theme in selected_themes:
+        semantic = semantic.merge(feature_frames[theme], on="SK_ID_CURR", how="left")
 
-    registry = to_registry_frame(semantic_feature_specs())
+    registry = to_registry_frame(semantic_feature_specs(selected_themes))
     semantic.to_parquet(output_dir / "semantic_feature_matrix.parquet", index=False)
     registry.to_csv(output_dir / "semantic_feature_registry.csv", index=False)
     return SemanticFeatureResult(feature_matrix=semantic, registry=registry)

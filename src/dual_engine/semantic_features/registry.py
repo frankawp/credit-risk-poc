@@ -17,8 +17,13 @@ class FeatureSpec:
     status: str = "candidate"
 
 
-def semantic_feature_specs() -> list[FeatureSpec]:
-    return [
+IMPLEMENTED_SEMANTIC_THEMES = ("consistency", "velocity", "cashout")
+KNOWN_SEMANTIC_THEMES = IMPLEMENTED_SEMANTIC_THEMES + ("collusion",)
+
+
+def semantic_feature_specs(themes: Iterable[str] | None = None) -> list[FeatureSpec]:
+    requested = None if themes is None else {theme.strip().lower() for theme in themes}
+    all_specs = [
         FeatureSpec(
             feature_name="consistency_employed_birth_ratio",
             feature_source="semantic",
@@ -116,7 +121,12 @@ def semantic_feature_specs() -> list[FeatureSpec]:
             risk_direction="higher_is_riskier",
         ),
     ]
+    if requested is None:
+        return all_specs
+    return [spec for spec in all_specs if spec.feature_group in requested]
 
 
 def to_registry_frame(specs: Iterable[FeatureSpec]) -> pd.DataFrame:
-    return pd.DataFrame([asdict(spec) for spec in specs])
+    rows = [asdict(spec) for spec in specs]
+    columns = list(FeatureSpec.__dataclass_fields__.keys())
+    return pd.DataFrame(rows, columns=columns)

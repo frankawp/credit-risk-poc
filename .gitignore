@@ -1,1 +1,5 @@
 data/raw/home-credit-default-risk/
+.venv/
+outputs/
+__pycache__/
+*.pyc

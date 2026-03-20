@@ -1,0 +1,11 @@
+required_tables:
+  - application_train
+  - previous_application
+  - bureau
+  - credit_card_balance
+  - installments_payments
+
+feature_groups:
+  - consistency
+  - velocity
+  - cashout

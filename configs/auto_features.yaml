@@ -1,0 +1,12 @@
+sample_size: 3000
+max_depth: 2
+agg_primitives:
+  - sum
+  - mean
+  - max
+  - min
+  - std
+  - count
+  - num_unique
+trans_primitives:
+  - absolute

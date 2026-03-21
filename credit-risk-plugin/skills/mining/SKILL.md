@@ -108,15 +108,38 @@ ls outputs/ 2>/dev/null | head -5
 
 **引擎工具**：
 ```python
+# 参考 examples/home_credit/build_entityset.py 样例
+# 根据实际数据集手动配置实体关系
 import sys
 sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
 
+from engine.config import EntityConfig, EnginePaths
 from engine.entity import EntitySetBuilder
 
-# 自动推断实体关系
-builder = EntitySetBuilder.auto_infer(data_dir="data/raw/")
-entityset, frames = builder.build()
+# 定义实体关系（根据实际数据调整）
+configs = [
+    EntityConfig(
+        name="主表名",
+        file_path="主表文件.csv",
+        index="主键列",
+        parent=None,
+        target="目标变量",
+    ),
+    EntityConfig(
+        name="子表名",
+        file_path="子表文件.csv",
+        index="子表主键",
+        parent="主表名",
+        foreign_key="外键列",
+    ),
+]
+
+builder = EntitySetBuilder(paths=EnginePaths(data_dir="data/raw/"))
+builder.add_entities(configs)
+entityset, frames = builder.build(sample_size=3000)
 ```
+
+**参考样例**：`examples/home_credit/build_entityset.py`
 
 ### 第二阶段：假设设计
 

@@ -24,6 +24,8 @@ python3 -m venv .venv
 .venv/bin/pip install -r .claude/skills/feature-mining-orchestrator/requirements.txt
 ```
 
+这会通过 git URL 安装 `credit-risk-poc` 包（含 `dual_engine` 及其所有依赖），无需手动拷贝源码。
+
 ## 任务分支
 
 根据用户意图，走不同分支：

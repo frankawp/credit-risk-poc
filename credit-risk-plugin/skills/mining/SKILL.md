@@ -108,6 +108,9 @@ ls outputs/ 2>/dev/null | head -5
 
 **引擎工具**：
 ```python
+import sys
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+
 from engine.entity import EntitySetBuilder
 
 # 自动推断实体关系
@@ -142,6 +145,9 @@ entityset, frames = builder.build()
 
 **引擎工具**：
 ```python
+import sys
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+
 from engine.semantic import list_available_themes, get_theme_description
 
 # 查看可用主题
@@ -208,6 +214,9 @@ def build_{theme}_features_v2(frames: dict[str, pd.DataFrame], anchor: pd.DataFr
 
 **引擎工具**：
 ```python
+import sys
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+
 from engine.auto import generate_auto_features, check_featuretools_available
 from engine.semantic import generate_semantic_features
 
@@ -240,6 +249,9 @@ result = generate_semantic_features(frames, anchor, themes=["velocity", "cashout
 
 **引擎工具**：
 ```python
+import sys
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+
 from engine.selection import run_feature_selection
 from engine.config import SelectionConfig
 
@@ -313,6 +325,9 @@ result = run_feature_selection(feature_matrix, config, output_dir=Path("outputs/
 将有效的语义特征组合成更强的业务信号：
 
 ```python
+import sys
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+
 from engine.composite import CompositeFeatureSpec, build_composite_features, create_cross_feature
 
 specs = [

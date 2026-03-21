@@ -1,5 +1,0 @@
-enabled: true
-rules:
-  - velocity_x_cashout
-  - consistency_velocity_flag
-  - fpd_velocity_flag

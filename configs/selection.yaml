@@ -1,7 +1,0 @@
-id_col: SK_ID_CURR
-target_col: TARGET
-topk_ratio: 0.1
-missing_rate_threshold: 0.95
-correlation_threshold: 0.95
-min_auc: 0.52
-min_ap_lift: 1.02

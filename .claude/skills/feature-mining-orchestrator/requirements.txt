@@ -1,2 +1,0 @@
-credit-risk-poc @ git+https://github.com/frankawp/credit-risk-poc.git@main
-setuptools<81

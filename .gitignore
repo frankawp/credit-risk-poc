@@ -1,5 +1,20 @@
-data/raw/home-credit-default-risk/
+# 数据文件
+data/
+
+# Python
 .venv/
-outputs/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+
+# 输出产物
+outputs/
+
+# 归档
+archives/
+
+# IDE
+.vscode/
+.idea/
+*.swp

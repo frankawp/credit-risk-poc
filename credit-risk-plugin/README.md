@@ -4,15 +4,55 @@
 
 ## 安装
 
-### 方式一：从本地目录加载
+### 方式一：从 GitHub 克隆后本地加载
 
 ```bash
-claude --plugin-dir /path/to/credit-risk-plugin
+# 1. 克隆仓库
+git clone https://github.com/frankawp/credit-risk-poc.git
+cd credit-risk-poc
+
+# 2. 切换到插件分支
+git checkout refactor/skills-abstraction
+
+# 3. 在目标工程中加载插件
+cd /path/to/your-project
+claude --plugin-dir /path/to/credit-risk-poc/credit-risk-plugin
 ```
 
-### 方式二：安装到 Claude Code
+### 方式二：直接引用远程仓库
 
-将插件目录放置到 Claude Code 的插件搜索路径中。
+如果目标工程已有 git 仓库，可以将此插件作为子目录：
+
+```bash
+# 在目标工程中
+cd /path/to/your-project
+
+# 创建插件目录
+mkdir -p .claude/plugins
+
+# 克隆插件到临时目录
+git clone --depth 1 --branch refactor/skills-abstraction https://github.com/frankawp/credit-risk-poc.git /tmp/credit-risk-poc
+
+# 复制插件目录
+cp -r /tmp/credit-risk-poc/credit-risk-plugin .claude/plugins/
+
+# 清理临时目录
+rm -rf /tmp/credit-risk-poc
+```
+
+### 方式三：复制到用户级插件目录
+
+```bash
+# 克隆仓库
+git clone --branch refactor/skills-abstraction https://github.com/frankawp/credit-risk-poc.git
+
+# 复制到用户插件目录
+mkdir -p ~/.claude/plugins
+cp -r credit-risk-poc/credit-risk-plugin ~/.claude/plugins/
+
+# 所有项目自动可用
+claude
+```
 
 ## 使用方法
 
@@ -79,4 +119,22 @@ credit-risk-plugin/
 
 ## 示例
 
-参见 `examples/` 目录下的业务案例。
+参见 [examples/home_credit/](../examples/home_credit/) 目录下的业务案例。
+
+## 快速测试
+
+在任意项目中测试插件：
+
+```bash
+# 创建测试目录
+mkdir -p /tmp/test-plugin/data
+
+# 放入一些 CSV 数据文件
+# ...
+
+# 启动 Claude Code 加载插件
+claude --plugin-dir ~/.claude/plugins/credit-risk-plugin
+
+# 在 Claude Code 中调用
+/credit-risk:mining 帮我探索 data 目录
+```

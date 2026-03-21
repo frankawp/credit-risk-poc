@@ -1,0 +1,27 @@
+{
+  "name": "credit-risk-marketplace",
+  "owner": {
+    "name": "frankawp"
+  },
+  "metadata": {
+    "description": "信贷变量挖掘工具集 - 提供数据探索、变量设计、效果评估的通用工作流"
+  },
+  "plugins": [
+    {
+      "name": "credit-risk",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/frankawp/credit-risk-poc.git",
+        "path": "credit-risk-plugin",
+        "ref": "refactor/skills-abstraction"
+      },
+      "description": "信贷变量挖掘智能伙伴 - 提供数据探索、变量设计、效果评估的通用工作流",
+      "version": "1.0.0",
+      "author": {
+        "name": "frankawp"
+      },
+      "keywords": ["credit-risk", "feature-mining", "data-analysis"],
+      "category": "data-science"
+    }
+  ]
+}

@@ -4,65 +4,53 @@
 
 ## 安装
 
-### 方式一：从 GitHub 克隆后本地加载
+### 步骤 1：添加插件市场
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/frankawp/credit-risk-poc.git
-cd credit-risk-poc
-
-# 2. 切换到插件分支
-git checkout refactor/skills-abstraction
-
-# 3. 在目标工程中加载插件
-cd /path/to/your-project
-claude --plugin-dir /path/to/credit-risk-poc/credit-risk-plugin
+# 在 Claude Code 中运行
+/plugin marketplace add https://github.com/frankawp/credit-risk-poc
 ```
 
-### 方式二：直接引用远程仓库
-
-如果目标工程已有 git 仓库，可以将此插件作为子目录：
+或指定分支：
 
 ```bash
-# 在目标工程中
-cd /path/to/your-project
-
-# 创建插件目录
-mkdir -p .claude/plugins
-
-# 克隆插件到临时目录
-git clone --depth 1 --branch refactor/skills-abstraction https://github.com/frankawp/credit-risk-poc.git /tmp/credit-risk-poc
-
-# 复制插件目录
-cp -r /tmp/credit-risk-poc/credit-risk-plugin .claude/plugins/
-
-# 清理临时目录
-rm -rf /tmp/credit-risk-poc
+/plugin marketplace add https://github.com/frankawp/credit-risk-poc --ref refactor/skills-abstraction
 ```
 
-### 方式三：复制到用户级插件目录
+### 步骤 2：安装插件
+
+添加市场后，安装插件：
 
 ```bash
-# 克隆仓库
-git clone --branch refactor/skills-abstraction https://github.com/frankawp/credit-risk-poc.git
-
-# 复制到用户插件目录
-mkdir -p ~/.claude/plugins
-cp -r credit-risk-poc/credit-risk-plugin ~/.claude/plugins/
-
-# 所有项目自动可用
-claude
+/plugin install credit-risk@credit-risk-marketplace
 ```
 
-## 使用方法
-
-### 调用技能
+### 步骤 3：使用技能
 
 ```
 /credit-risk:mining
 ```
 
-### 核心功能
+---
+
+## 本地测试
+
+在发布前可以本地测试：
+
+```bash
+# 克隆仓库
+git clone --branch refactor/skills-abstraction https://github.com/frankawp/credit-risk-poc.git
+
+# 添加本地市场
+/plugin marketplace add ./credit-risk-poc
+
+# 安装插件
+/plugin install credit-risk@credit-risk-marketplace
+```
+
+---
+
+## 核心功能
 
 1. **数据探索** - 自动分析数据目录结构和质量
 2. **变量设计** - 基于业务假设设计变量
@@ -121,20 +109,20 @@ credit-risk-plugin/
 
 参见 [examples/home_credit/](../examples/home_credit/) 目录下的业务案例。
 
-## 快速测试
+---
 
-在任意项目中测试插件：
+## 常用命令
 
 ```bash
-# 创建测试目录
-mkdir -p /tmp/test-plugin/data
+# 查看已添加的市场
+/plugin marketplace list
 
-# 放入一些 CSV 数据文件
-# ...
+# 更新市场
+/plugin marketplace update credit-risk-marketplace
 
-# 启动 Claude Code 加载插件
-claude --plugin-dir ~/.claude/plugins/credit-risk-plugin
+# 查看已安装的插件
+/plugin list
 
-# 在 Claude Code 中调用
-/credit-risk:mining 帮我探索 data 目录
+# 卸载插件
+/plugin uninstall credit-risk@credit-risk-marketplace
 ```

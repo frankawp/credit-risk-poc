@@ -3,9 +3,14 @@
 基于 Featuretools 的自动化统计挖掘。
 """
 
-from .generator import AutoFeatureResult, generate_auto_features
+from .generator import (
+    AutoFeatureResult,
+    generate_auto_features,
+    check_featuretools_available,
+)
 
 __all__ = [
     "AutoFeatureResult",
     "generate_auto_features",
+    "check_featuretools_available",
 ]

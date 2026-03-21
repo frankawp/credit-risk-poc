@@ -95,7 +95,9 @@ python credit-risk-plugin/scripts/feature_registry.py register --name my_feature
 
 ### 版本管理
 
-- **Push 前必须修改版本号**：每次推送到远程仓库前，需更新 `credit-risk-plugin/.claude-plugin/plugin.json` 中的 version 字段
+- **Push 前必须修改版本号**：每次推送到远程仓库前，需同步更新以下两个文件中的 version 字段：
+  1. `credit-risk-plugin/.claude-plugin/plugin.json`
+  2. `.claude-plugin/marketplace.json`
 - 版本号格式：`major.minor.patch`（如 1.1.2）
 - 小修复/bugfix：增加 patch 版本号
 - 新功能：增加 minor 版本号

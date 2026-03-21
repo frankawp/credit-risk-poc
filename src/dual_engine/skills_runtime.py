@@ -543,9 +543,9 @@ def archive_latest_run(
     paths = EnginePaths()
     base_dir = base_dir or Path(".")
     topic_slug = re.sub(r"[^\w\u4e00-\u9fff-]+", "_", topic).strip("_") or "feature_mining"
-    date_prefix = datetime.now().strftime("%Y-%m-%d")
+    datetime_prefix = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     workspace_root = base_dir.resolve()
-    archive_dir = workspace_root / "archives" / "analysis_run" / f"{date_prefix}_{topic_slug}"
+    archive_dir = workspace_root / "archives" / "analysis_run" / f"{datetime_prefix}_{topic_slug}"
     if archive_dir.exists():
         return _result(
             status="error",
@@ -589,7 +589,7 @@ def archive_latest_run(
     artifacts_path = conclusion_dir / "artifacts.json"
     summary_path.write_text(
         "# 本轮挖掘摘要\n\n"
-        f"- 日期：{date_prefix}\n"
+        f"- 时间：{datetime_prefix}\n"
         f"- 主题：{topic}\n"
         f"- 任务类型：{task_type}\n"
         f"- 候选池规模：{candidate_summary.get('candidate_pool_shape')}\n"

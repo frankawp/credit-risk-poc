@@ -6,7 +6,8 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class EnginePaths:
-    raw_dir: Path = Path("data/raw/home-credit-default-risk")
+    """引擎路径配置。"""
+    raw_dir: Path = Path("data/raw")
     output_dir: Path = Path("outputs")
     candidate_dir: Path = Path("outputs/candidate_pool")
     selection_dir: Path = Path("outputs/selection")

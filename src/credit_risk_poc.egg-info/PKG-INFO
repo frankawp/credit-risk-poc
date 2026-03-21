@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: credit-risk-poc
+Version: 0.1.0
+Requires-Python: >=3.13
+Requires-Dist: featuretools>=1.31.0
+Requires-Dist: pandas>=2.2.3
+Requires-Dist: numpy>=2.4.3
+Requires-Dist: scikit-learn>=1.8.0
+Requires-Dist: pyarrow>=23.0.1
+Requires-Dist: streamlit>=1.55.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"

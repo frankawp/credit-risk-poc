@@ -1,3 +1,4 @@
+"""语义特征生成器。"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,12 +8,10 @@ from typing import Iterable
 import pandas as pd
 
 from dual_engine.config import EnginePaths
-from dual_engine.semantic_features.feature_groups import (
-    build_cashout_features,
-    build_consistency_features,
-    build_velocity_features,
-)
-from dual_engine.semantic_features.registry import semantic_feature_specs, to_registry_frame
+from .consistency import build_consistency_features
+from .velocity import build_velocity_features
+from .cashout import build_cashout_features
+from .registry import semantic_feature_specs, to_registry_frame
 
 
 @dataclass(frozen=True)

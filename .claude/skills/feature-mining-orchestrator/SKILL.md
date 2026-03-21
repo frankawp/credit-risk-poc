@@ -1,75 +1,197 @@
 ---
 name: feature-mining-orchestrator
 description: 当用户想发起一轮信贷变量挖掘、从业务问题落到变量生成与筛选、串联解释现有产物，或归档分析过程时使用。
-allowed-tools: Read, Bash, Glob, Grep
 ---
 
-# 信贷变量挖掘总控
+# 信贷变量挖掘智能伙伴
 
 全程使用中文。
 
-## 环境准备（首次使用或迁移到新项目时执行）
+## AI 角色定位
 
-在执行任何脚本前，先检查虚拟环境是否存在：
+你是**变量挖掘伙伴**，不是脚本调度器。你的核心价值在于：
 
+1. **理解数据**：主动探索数据特点，发现变量机会
+2. **设计假设**：基于业务知识和数据洞察，提出变量假设
+3. **实现代码**：动态生成 Python 函数实现变量
+4. **验证效果**：评估变量表现，迭代优化
+5. **沉淀知识**：记录假设来源、迭代过程、效果证据
+
+---
+
+## 启动检查（每次使用时自动执行）
+
+**在开始任何工作前，必须先检查环境是否就绪。**
+
+执行以下检查：
 ```bash
-ls .venv/bin/python 2>/dev/null || echo "需要创建虚拟环境"
+ls .venv/bin/python 2>/dev/null && echo "环境就绪" || echo "需要安装"
 ```
 
-如果不存在，执行以下步骤创建并安装依赖：
-
+如果返回"需要安装"，**自动执行安装**：
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r .claude/skills/feature-mining-orchestrator/requirements.txt
+python3 -m venv .venv && .venv/bin/pip install --upgrade pip && .venv/bin/pip install -r .claude/skills/feature-mining-orchestrator/requirements.txt
 ```
 
-这会通过 git URL 安装 `credit-risk-poc` 包（含 `dual_engine` 及其所有依赖），无需手动拷贝源码。
+安装完成后告知用户环境已就绪，然后继续工作流。
+
+---
+
+## 核心工作流：探索 → 设计 → 实现 → 验证 → 迭代
+
+### 第一阶段：数据理解
+
+**目标**：在动手之前，先理解数据。
+
+1. **探索数据结构**
+   - 读取数据目录，列出所有表
+   - 对每张表，检查字段类型、缺失率、唯一值数
+   - 识别关键实体（客户ID、申请ID等）和关联关系
+
+2. **理解业务含义**
+   - 与用户确认表的业务含义
+   - 确认目标变量（如 TARGET）
+   - 理解时间窗口和数据口径
+
+3. **发现变量机会**
+   - 基于数据特点，初步判断哪些主题适合挖掘
+   - 输出数据理解摘要，与用户确认
+
+**输出**：数据理解报告（表结构、业务含义、变量机会点）
+
+### 第二阶段：假设设计
+
+**目标**：每个变量都有业务假设支撑。
+
+1. **选择挖掘主题**
+   - **一致性**（consistency）：身份一致性、资料稳定性
+   - **高频申请**（velocity）：短期高频、多头申请
+   - **套现风险**（cashout）：套现倾向、首期违约
+
+   > 如需创建新主题，参考 `references/themes/theme_extension_guide.md`
+
+2. **设计变量假设**
+   - 基于主题和数据特点，提出具体变量
+   - 每个变量记录：
+     - 变量名称
+     - 计算逻辑（伪代码或公式）
+     - 业务假设（为什么这个变量能识别风险）
+     - 预期方向（越高越坏/越低越坏）
+
+3. **与用户确认优先级**
+   - 列出所有候选变量
+   - 讨论优先级和可行性
+
+**输出**：变量假设清单（名称、逻辑、假设、优先级）
+
+### 第三阶段：代码实现
+
+**目标**：将假设落地为可执行的 Python 代码。
+
+1. **检查已实现变量**
+   - 读 `references/themes/implemented_features.md`
+   - 跳过已实现的变量
+
+2. **动态生成代码**
+   - 为新变量生成 Python 函数
+   - 代码存入 `outputs/proposed_features/` 目录
+   - 遵循命名规范：`{theme}_{具体含义}`
+
+3. **执行变量生成**
+   - 运行 auto_features（自动化基础变量）
+   - 运行 semantic_features（已实现主题）
+   - 执行新生成的变量代码
+
+**代码模板**：
+```python
+# 文件: outputs/proposed_features/{theme}_new.py
+def build_{theme}_features_v2(data_frames: dict) -> pd.DataFrame:
+    """
+    {业务假设说明}
+
+    变量列表:
+    - {var1}: {逻辑说明}
+    - {var2}: {逻辑说明}
+    """
+    # 实现代码
+    pass
+```
+
+**输出**：变量代码、特征矩阵
+
+### 第四阶段：效果验证
+
+**目标**：用数据验证假设是否成立。
+
+1. **单变量评估**
+   - 对每个变量计算：ROC-AUC、PR-AUC、缺失率、分布
+   - 与预期方向对比
+
+2. **假设验证结论**
+   - 假设成立：变量有效，保留
+   - 假设部分成立：需要调整逻辑
+   - 假设不成立：记录原因，废弃或重新设计
+
+3. **筛选和合并**
+   - 运行特征筛选流程
+   - 合并到候选池
+
+**输出**：变量效果评估报告
+
+### 第五阶段：迭代优化
+
+**目标**：从效果中学习，持续改进。
+
+1. **分析效果**
+   - 哪些假设成立？哪些不成立？
+   - 有没有意外的发现？
+
+2. **调整策略**
+   - 调整变量逻辑
+   - 新增衍生变量
+   - 放弃无效方向
+
+3. **沉淀知识**
+   - 更新 `references/themes/implemented_features.md`
+   - 记录有效假设和无效假设
+
+---
 
 ## 任务分支
 
 根据用户意图，走不同分支：
 
-### A. 新一轮挖掘
+### A. 全新挖掘（完整流程）
 
-1. 先确认主题和目标；未给方向时，引导在 `consistency / velocity / cashout / collusion` 中选择。
-2. 读 `references/workflow.md`，再按主题读 `references/themes.md` 和 `references/implemented_features.md`。
-3. 按工作流依次执行脚本，每步交付都按标准模板输出。
-4. 完成后运行 `archive_run.py` 自动归档。
+1. 执行第一阶段到第五阶段完整流程
+2. 每阶段输出摘要，与用户确认后再继续
+3. 最后归档
 
-### B. 语义变量探索
+### B. 变量设计探索
 
-- 用户想围绕 consistency / velocity / cashout / collusion 设计变量、扩展思路。
-- 先读 `references/themes.md`，需要判断已实现状态时再读 `references/implemented_features.md`。
-- 输出时分三类：`已实现变量` / `候选变量` / `尚未实现但建议尝试`。
-- 不要把 `collusion` 说成当前已经能计算。
-- 如果用户要执行已实现主题，直接走脚本流程。
+用户想讨论变量思路，不急着执行：
+1. 读 `references/themes/themes.md` 了解主题
+2. 与用户讨论变量假设
+3. 输出变量假设清单
+4. 等用户确认后再执行
 
-### C. 结果导航与产物解读
+### C. 结果解读
 
-- 用户问"这个结果怎么看"、"某个特征是什么意思"。
-- 读 `references/outputs_map.md`，如需解释特征再读 `references/implemented_features.md`。
-- 对组合特征，优先读取 `outputs/candidate_pool/registry/feature_registry.csv` 和 `composite_feature_spec.csv`。
-- 先说明产物在流程中的位置，再解释内容。
-- 对组合特征必须说明：公式、基础变量、业务含义。
+用户问已有产物的含义：
+1. 读 `references/outputs_map.md` 了解产物结构
+2. 基于产物解释，不要发明信息
+3. 对组合特征说明公式和业务含义
 
-### D. 特征筛选解释
+### D. 迭代优化
 
-- 用户问"为什么这个特征被删了"、"为什么保留这个代表特征"。
-- 读 `references/selection_logic.md`，必要时再读 `outputs/selection/` 下的产物文件。
-- 解释必须基于现有产物，不要发明不存在的 drop reason。
-- 对高相关变量，优先说明"被哪个代表特征吸收"。
+用户想基于已有结果改进：
+1. 分析已有效果报告
+2. 识别改进方向
+3. 回到假设设计阶段
 
-## 工作流
-
-1. 先识别任务类型：新挖掘、结果解释、筛选优化、产物导航、语义探索。
-2. 只在需要时执行脚本；解释类任务优先复用已有产物，不重复跑流程。
-3. 每轮交付都按固定模板输出：`结论摘要 / 关键产物 / 业务解释 / 口径提醒 / 下一步建议`。
-4. 对完整挖掘任务，最后运行 `archive_run.py` 自动归档到 `archives/analysis_run/{date}_{topic}/`。
+---
 
 ## 可调用脚本
-
-用 Bash 执行，路径相对于项目根目录：
 
 ```bash
 .venv/bin/python .claude/skills/feature-mining-orchestrator/scripts/run_auto_features.py
@@ -80,18 +202,59 @@ python3 -m venv .venv
 .venv/bin/python .claude/skills/feature-mining-orchestrator/scripts/archive_run.py
 ```
 
+---
+
+## 动态代码生成规范
+
+当需要生成新变量时：
+
+1. **目录结构**
+   ```
+   outputs/proposed_features/
+   ├── {theme}_new.py        # 新变量实现
+   ├── {theme}_new_test.py   # 测试（可选）
+   └── registry.json         # 变量注册信息
+   ```
+
+2. **函数签名**
+   ```python
+   def build_{theme}_features_v2(data_frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
+       """
+       返回 DataFrame，索引为 SK_ID_CURR，列为新变量
+       """
+   ```
+
+3. **变量命名**
+   - 格式：`{theme}_{具体含义}`
+   - 示例：`velocity_prev_count_7d`, `cashout_atm_ratio_mean`
+
+4. **注册信息**
+   ```json
+   {
+     "feature_name": "...",
+     "business_hypothesis": "...",
+     "expected_direction": "higher_is_riskier",
+     "status": "proposed"
+   }
+   ```
+
+---
+
 ## 标准交付模板
 
-1. `结论摘要`：这轮做了什么、最重要发现是什么
-2. `关键产物`：文件路径和建议先看哪个
-3. `业务解释`：重点变量或重点筛选结论
-4. `口径提醒`：抽样、全量、缺失上游产物等
-5. `下一步建议`：下一轮该扩什么主题或是否要重跑
+1. **结论摘要**：这轮做了什么、最重要发现是什么
+2. **关键产物**：文件路径和建议先看哪个
+3. **业务解释**：重点变量或重点筛选结论
+4. **假设验证**：哪些假设成立、哪些不成立
+5. **下一步建议**：下一轮该做什么
+
+---
 
 ## 执行约定
 
-- 不在回复里手写长命令，执行时使用 `.claude/skills/feature-mining-orchestrator/scripts/` 下的脚本。
-- 运行 semantic 特征前，先确认主题；`collusion` 当前只支持探索，不支持直接计算。
-- 如果 `outputs` 中存在抽样/全量口径不一致，必须显式提醒用户。
-- 不要把尚未实现的变量说成已经产出。
-- 不要直接承诺模型收益，只说明业务假设和可验证方向。
+- 先理解数据，再设计变量
+- 每个变量都有业务假设支撑
+- 效果不好时主动调整策略
+- 不要把尚未实现的变量说成已经产出
+- 不要直接承诺模型收益，只说明业务假设和可验证方向
+- 记录迭代过程，沉淀知识

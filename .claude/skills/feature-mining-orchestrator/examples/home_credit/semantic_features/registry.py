@@ -18,7 +18,7 @@ class FeatureSpec:
 
 
 IMPLEMENTED_SEMANTIC_THEMES = ("consistency", "velocity", "cashout")
-KNOWN_SEMANTIC_THEMES = IMPLEMENTED_SEMANTIC_THEMES + ("collusion",)
+KNOWN_SEMANTIC_THEMES = IMPLEMENTED_SEMANTIC_THEMES
 
 
 def semantic_feature_specs(themes: Iterable[str] | None = None) -> list[FeatureSpec]:

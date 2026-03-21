@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import shutil
@@ -10,11 +11,81 @@ from typing import Iterable
 import pandas as pd
 
 from dual_engine.auto_features import generate_auto_features
-from dual_engine.composite_features import build_composite_features, composite_specs_frame
 from dual_engine.config import AutoFeatureConfig, EnginePaths, SelectionConfig
 from dual_engine.selection import run_feature_selection
-from dual_engine.semantic_features import generate_semantic_features
-from dual_engine.semantic_features.registry import IMPLEMENTED_SEMANTIC_THEMES, KNOWN_SEMANTIC_THEMES
+
+
+# ============================================================================
+# 样例模块动态加载
+# ============================================================================
+
+EXAMPLES_DIR = Path(".claude/skills/feature-mining-orchestrator/examples/home_credit")
+
+
+def _load_semantic_module():
+    """动态加载语义特征模块。"""
+    spec = importlib.util.spec_from_file_location(
+        "home_credit_semantic",
+        EXAMPLES_DIR / "semantic_features/generator.py"
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("无法加载语义特征模块")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_composite_module():
+    """动态加载组合特征模块。"""
+    spec = importlib.util.spec_from_file_location(
+        "home_credit_composite",
+        EXAMPLES_DIR / "composite_features/generator.py"
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("无法加载组合特征模块")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_registry_module():
+    """动态加载注册表模块。"""
+    spec = importlib.util.spec_from_file_location(
+        "home_credit_registry",
+        EXAMPLES_DIR / "semantic_features/registry.py"
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("无法加载注册表模块")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_specs_module():
+    """动态加载组合特征规格模块。"""
+    spec = importlib.util.spec_from_file_location(
+        "home_credit_specs",
+        EXAMPLES_DIR / "composite_features/specs.py"
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("无法加载组合特征规格模块")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# 常量从动态加载的模块获取
+def _get_implemented_themes():
+    return _load_registry_module().IMPLEMENTED_SEMANTIC_THEMES
+
+
+def _get_known_themes():
+    return _load_registry_module().KNOWN_SEMANTIC_THEMES
+
+
+# 兼容旧代码的常量引用
+IMPLEMENTED_SEMANTIC_THEMES = ("consistency", "velocity", "cashout")
+KNOWN_SEMANTIC_THEMES = IMPLEMENTED_SEMANTIC_THEMES
 
 
 def _result(
@@ -173,8 +244,11 @@ def normalize_semantic_themes(themes: Iterable[str] | str | None) -> dict:
         if not requested:
             requested = ["all"]
 
+    implemented_themes = _get_implemented_themes()
+    known_themes = _get_known_themes()
+
     if "all" in requested:
-        expanded = list(IMPLEMENTED_SEMANTIC_THEMES)
+        expanded = list(implemented_themes)
         return {
             "requested": requested,
             "implemented": expanded,
@@ -182,9 +256,9 @@ def normalize_semantic_themes(themes: Iterable[str] | str | None) -> dict:
             "unknown": [],
         }
 
-    implemented = [theme for theme in requested if theme in IMPLEMENTED_SEMANTIC_THEMES]
-    unimplemented = [theme for theme in requested if theme in KNOWN_SEMANTIC_THEMES and theme not in IMPLEMENTED_SEMANTIC_THEMES]
-    unknown = [theme for theme in requested if theme not in KNOWN_SEMANTIC_THEMES]
+    implemented = [theme for theme in requested if theme in implemented_themes]
+    unimplemented = [theme for theme in requested if theme in known_themes and theme not in implemented_themes]
+    unknown = [theme for theme in requested if theme not in known_themes]
     return {
         "requested": requested,
         "implemented": implemented,
@@ -200,6 +274,7 @@ def run_auto_features(sample_size: int = 3000, max_depth: int = 2) -> dict:
     result = generate_auto_features(
         config=AutoFeatureConfig(sample_size=sample_size, max_depth=max_depth),
         output_dir=output_dir,
+        paths=paths,
     )
     summary = {
         "sample_size": sample_size,
@@ -235,7 +310,7 @@ def run_semantic_features(themes: Iterable[str] | None = None) -> dict:
         )
     if normalized["unknown"]:
         warnings.append(
-            f"未识别的主题: {', '.join(normalized['unknown'])}。可用主题为 consistency、velocity、cashout、collusion。"
+            f"未识别的主题: {', '.join(normalized['unknown'])}。可用主题为 consistency、velocity、cashout。"
         )
 
     if not normalized["implemented"]:
@@ -252,7 +327,9 @@ def run_semantic_features(themes: Iterable[str] | None = None) -> dict:
             next_actions=["改为运行 consistency、velocity 或 cashout，或先做语义变量探索。"],
         )
 
-    result = generate_semantic_features(paths=paths, output_dir=output_dir, themes=normalized["implemented"])
+    # 动态加载语义特征模块
+    semantic_module = _load_semantic_module()
+    result = semantic_module.generate_semantic_features(paths=paths, output_dir=output_dir, themes=normalized["implemented"])
     summary = {
         "requested_themes": normalized["requested"],
         "generated_themes": normalized["implemented"],
@@ -302,8 +379,12 @@ def run_composite_features() -> dict:
     auto_frame = pd.read_parquet(required["auto_feature_matrix"])
     semantic_frame = pd.read_parquet(required["semantic_feature_matrix"])
     merged = auto_frame.merge(semantic_frame.drop(columns=["TARGET"], errors="ignore"), on="SK_ID_CURR", how="left")
-    composite = build_composite_features(merged)
-    specs = composite_specs_frame()
+
+    # 动态加载组合特征模块
+    composite_module = _load_composite_module()
+    specs_module = _load_specs_module()
+    composite = composite_module.build_composite_features(merged)
+    specs = specs_module.composite_specs_frame()
     registry = _enrich_composite_registry(
         pd.DataFrame({"feature_name": [col for col in composite.columns if col != "SK_ID_CURR"]}),
         specs,
@@ -556,4 +637,331 @@ def archive_latest_run(
         },
         warnings=warnings,
         next_actions=["当前工作区应只剩 data/ 和 archives/；下一轮挖掘请在干净工作区继续。"],
+    )
+
+
+# ============================================================================
+# 数据探索函数
+# ============================================================================
+
+
+def explore_data_directory(data_dir: Path | None = None, sample_rows: int = 1000) -> dict:
+    """
+    探索数据目录，分析表结构和数据质量。
+
+    返回每张表的结构、字段统计、缺失率等信息。
+    """
+    paths = EnginePaths()
+    raw_dir = data_dir or paths.raw_dir
+
+    if not raw_dir.exists():
+        return _result(
+            status="error",
+            step="explore_data",
+            artifacts={},
+            summary={"data_dir": str(raw_dir)},
+            warnings=[f"数据目录不存在：{raw_dir}"],
+            next_actions=["请确认数据目录路径，或将数据放入 data/raw/ 目录。"],
+        )
+
+    csv_files = list(raw_dir.glob("*.csv"))
+    parquet_files = list(raw_dir.glob("*.parquet"))
+    all_files = csv_files + parquet_files
+
+    if not all_files:
+        return _result(
+            status="warning",
+            step="explore_data",
+            artifacts={},
+            summary={"data_dir": str(raw_dir), "file_count": 0},
+            warnings=["数据目录中没有 CSV 或 Parquet 文件。"],
+            next_actions=["请将数据文件放入数据目录。"],
+        )
+
+    tables_info = []
+    for file_path in all_files[:10]:  # 最多分析 10 个文件
+        try:
+            if file_path.suffix == ".csv":
+                df = pd.read_csv(file_path, nrows=sample_rows)
+            else:
+                df = pd.read_parquet(file_path)
+                if len(df) > sample_rows:
+                    df = df.head(sample_rows)
+
+            # 计算字段统计
+            columns_info = []
+            for col in df.columns:
+                col_data = df[col]
+                columns_info.append({
+                    "name": col,
+                    "dtype": str(col_data.dtype),
+                    "missing_rate": round(float(col_data.isna().mean()), 4),
+                    "unique_count": int(col_data.nunique()),
+                    "sample_values": col_data.dropna().head(3).tolist()[:3],
+                })
+
+            tables_info.append({
+                "file_name": file_path.name,
+                "row_count": len(df),
+                "column_count": len(df.columns),
+                "columns": columns_info[:20],  # 最多展示 20 列
+                "memory_mb": round(df.memory_usage(deep=True).sum() / 1024 / 1024, 2),
+            })
+        except Exception as e:
+            tables_info.append({
+                "file_name": file_path.name,
+                "error": str(e),
+            })
+
+    # 保存探索结果
+    output_dir = paths.candidate_dir / "exploration"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "data_exploration_report.json"
+    _write_json(report_path, {
+        "data_dir": str(raw_dir),
+        "file_count": len(all_files),
+        "sample_rows": sample_rows,
+        "tables": tables_info,
+    })
+
+    return _result(
+        status="success",
+        step="explore_data",
+        artifacts={"exploration_report": str(report_path)},
+        summary={
+            "data_dir": str(raw_dir),
+            "file_count": len(all_files),
+            "tables_analyzed": len(tables_info),
+        },
+        next_actions=["查看探索报告，确认数据结构，然后设计变量假设。"],
+    )
+
+
+# ============================================================================
+# 动态特征注册机制
+# ============================================================================
+
+
+PROPOSED_FEATURES_DIR = Path("outputs/proposed_features")
+
+
+def register_proposed_feature(
+    feature_name: str,
+    theme: str,
+    business_hypothesis: str,
+    expected_direction: str,
+    calculation_logic: str | None = None,
+) -> dict:
+    """
+    注册一个待实现的变量假设。
+
+    参数:
+        feature_name: 变量名，格式为 {theme}_{具体含义}
+        theme: 主题 (consistency/velocity/cashout/collusion)
+        business_hypothesis: 业务假设
+        expected_direction: 预期方向 (higher_is_riskier/lower_is_riskier)
+        calculation_logic: 计算逻辑描述
+    """
+    PROPOSED_FEATURES_DIR.mkdir(parents=True, exist_ok=True)
+    registry_path = PROPOSED_FEATURES_DIR / "registry.json"
+
+    # 加载已有注册
+    if registry_path.exists():
+        registry = json.loads(registry_path.read_text())
+    else:
+        registry = {"features": []}
+
+    # 检查是否已存在
+    existing_names = [f["feature_name"] for f in registry["features"]]
+    if feature_name in existing_names:
+        return _result(
+            status="warning",
+            step="register_feature",
+            artifacts={"registry": str(registry_path)},
+            summary={"feature_name": feature_name},
+            warnings=[f"变量 {feature_name} 已在注册表中。"],
+            next_actions=["更改变量名或更新已有记录。"],
+        )
+
+    # 添加新记录
+    from datetime import datetime
+    registry["features"].append({
+        "feature_name": feature_name,
+        "theme": theme,
+        "business_hypothesis": business_hypothesis,
+        "expected_direction": expected_direction,
+        "calculation_logic": calculation_logic,
+        "status": "proposed",
+        "created_at": datetime.now().isoformat(),
+    })
+
+    registry_path.write_text(json.dumps(registry, indent=2, ensure_ascii=False))
+
+    return _result(
+        status="success",
+        step="register_feature",
+        artifacts={"registry": str(registry_path)},
+        summary={"feature_name": feature_name, "theme": theme, "total_proposed": len(registry["features"])},
+        next_actions=["继续注册其他变量，或生成实现代码。"],
+    )
+
+
+def list_proposed_features(theme: str | None = None) -> dict:
+    """列出所有待实现的变量假设。"""
+    registry_path = PROPOSED_FEATURES_DIR / "registry.json"
+    if not registry_path.exists():
+        return _result(
+            status="success",
+            step="list_proposed_features",
+            artifacts={},
+            summary={"features": [], "total": 0},
+            next_actions=["还没有注册任何变量假设，先使用 register_proposed_feature 注册。"],
+        )
+
+    registry = json.loads(registry_path.read_text())
+    features = registry.get("features", [])
+
+    if theme:
+        features = [f for f in features if f.get("theme") == theme]
+
+    return _result(
+        status="success",
+        step="list_proposed_features",
+        artifacts={"registry": str(registry_path)},
+        summary={"features": features, "total": len(features)},
+        next_actions=["查看已注册变量，选择优先实现。"],
+    )
+
+
+# ============================================================================
+# 单变量评估函数
+# ============================================================================
+
+
+def evaluate_single_feature(
+    feature_series: pd.Series,
+    target_series: pd.Series,
+    feature_name: str = "feature",
+) -> dict:
+    """
+    评估单个变量的预测能力。
+
+    返回 ROC-AUC、PR-AUC、缺失率等指标。
+    """
+    from sklearn.metrics import roc_auc_score, average_precision_score
+
+    # 对齐索引
+    aligned = pd.DataFrame({"feature": feature_series, "target": target_series}).dropna()
+
+    if len(aligned) < 10:
+        return {
+            "feature_name": feature_name,
+            "valid_count": len(aligned),
+            "warning": "有效样本数过少，无法评估",
+        }
+
+    X = aligned["feature"].values
+    y = aligned["target"].values
+
+    # 检查是否为二分类
+    unique_targets = set(y)
+    if len(unique_targets) != 2:
+        return {
+            "feature_name": feature_name,
+            "valid_count": len(aligned),
+            "warning": f"目标变量不是二分类，取值：{unique_targets}",
+        }
+
+    try:
+        roc_auc = roc_auc_score(y, X)
+        pr_auc = average_precision_score(y, X)
+    except ValueError as e:
+        return {
+            "feature_name": feature_name,
+            "valid_count": len(aligned),
+            "warning": f"无法计算 AUC：{e}",
+        }
+
+    # 计算 top 10% lift
+    top_k = max(1, int(len(aligned) * 0.1))
+    top_indices = aligned.nlargest(top_k, "feature").index
+    top_bad_rate = aligned.loc[top_indices, "target"].mean()
+    overall_bad_rate = aligned["target"].mean()
+    lift_top_decile = top_bad_rate / overall_bad_rate if overall_bad_rate > 0 else 0
+
+    return {
+        "feature_name": feature_name,
+        "valid_count": len(aligned),
+        "missing_rate": round(1 - len(aligned) / len(feature_series), 4),
+        "roc_auc": round(roc_auc, 4),
+        "pr_auc": round(pr_auc, 4),
+        "lift_top_decile": round(lift_top_decile, 4),
+        "mean": round(float(aligned["feature"].mean()), 4),
+        "std": round(float(aligned["feature"].std()), 4),
+    }
+
+
+def evaluate_proposed_features(feature_matrix_path: str | None = None) -> dict:
+    """
+    评估所有新生成的变量。
+
+    读取特征矩阵和目标变量，对每个变量计算评估指标。
+    """
+    paths = EnginePaths()
+
+    # 读取数据
+    if feature_matrix_path:
+        matrix = pd.read_parquet(feature_matrix_path)
+    else:
+        # 尝试读取候选池
+        pool_path = paths.candidate_dir / "candidate_pool.parquet"
+        if not pool_path.exists():
+            return _result(
+                status="error",
+                step="evaluate_features",
+                artifacts={},
+                summary={},
+                warnings=["找不到特征矩阵，请先运行变量生成流程。"],
+                next_actions=["运行 build_candidate_pool.py 或指定特征矩阵路径。"],
+            )
+        matrix = pd.read_parquet(pool_path)
+
+    if "TARGET" not in matrix.columns:
+        return _result(
+            status="error",
+            step="evaluate_features",
+            artifacts={},
+            summary={},
+            warnings=["特征矩阵中没有 TARGET 列。"],
+            next_actions=["确保特征矩阵包含目标变量。"],
+        )
+
+    target = matrix["TARGET"]
+    feature_cols = [col for col in matrix.columns if col not in ["TARGET", "SK_ID_CURR"]]
+
+    results = []
+    for col in feature_cols:
+        if matrix[col].dtype in ["int64", "float64", "int32", "float32"]:
+            result = evaluate_single_feature(matrix[col], target, col)
+            results.append(result)
+
+    # 保存评估结果
+    output_dir = paths.selection_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    eval_path = output_dir / "proposed_features_evaluation.json"
+    _write_json(eval_path, {"evaluations": results, "total_features": len(results)})
+
+    # 统计有效变量
+    effective = [r for r in results if r.get("roc_auc", 0.5) > 0.52 or r.get("lift_top_decile", 0) > 1.02]
+
+    return _result(
+        status="success",
+        step="evaluate_features",
+        artifacts={"evaluation_report": str(eval_path)},
+        summary={
+            "total_features": len(results),
+            "effective_features": len(effective),
+            "top_features": sorted(results, key=lambda x: x.get("roc_auc", 0), reverse=True)[:5],
+        },
+        next_actions=["查看评估报告，决定保留哪些变量。"],
     )

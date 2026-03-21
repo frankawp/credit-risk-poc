@@ -2,9 +2,7 @@
 
 本文件只描述当前仓库里已经落成代码的变量，以及明显值得继续扩展但尚未实现的方向。
 
-## semantic features
-
-### consistency
+## 一致性（consistency）
 
 - `consistency_employed_birth_ratio`
   - 逻辑：`abs(DAYS_EMPLOYED) / (abs(DAYS_BIRTH) + 1)`
@@ -22,7 +20,7 @@
   - 逻辑：历史合同状态去重数 / 历史申请数
   - 含义：历史状态切换是否异常频繁
 
-### velocity
+## 高频申请（velocity）
 
 - `velocity_prev_count_7d`
   - 逻辑：`previous_application` 中 `DAYS_DECISION >= -7` 的笔数
@@ -36,7 +34,7 @@
 - `velocity_bureau_recent_credit_count_30d`
   - 逻辑：`bureau` 中 `DAYS_CREDIT >= -30` 的笔数
 
-### cashout
+## 套现风险（cashout）
 
 - `cashout_atm_ratio_mean`
   - 逻辑：`AMT_DRAWINGS_ATM_CURRENT / (abs(AMT_DRAWINGS_CURRENT) + 1)` 的客户级均值
@@ -50,7 +48,7 @@
 - `cashout_installments_late_ratio`
   - 逻辑：分期还款记录中逾期笔数占比
 
-## composite features
+## 组合特征（composite）
 
 - `composite_velocity_x_cashout`
   - 公式：`fillna(velocity_prev_count_7d, 0) * fillna(cashout_atm_ratio_mean, 0)`
@@ -66,11 +64,11 @@
 
 ## 尚未实现但建议继续挖掘
 
-- `collusion` 相关变量
-  - 例如：地区 x 组织类型风险、群组申请密度、弱团伙共现
-
-- 更强的 `consistency`
+- 更强的 **一致性**
   - 例如：跨次申请工龄跳变、年龄逻辑冲突
 
-- 更强的 `velocity`
+- 更强的 **高频申请**
   - 例如：更短时间窗口、bureau_balance 月度轨迹
+
+- 更强的 **套现风险**
+  - 例如：额度使用率、余额变化趋势

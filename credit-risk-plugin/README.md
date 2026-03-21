@@ -11,12 +11,6 @@
 /plugin marketplace add https://github.com/frankawp/credit-risk-poc
 ```
 
-或指定分支：
-
-```bash
-/plugin marketplace add https://github.com/frankawp/credit-risk-poc --ref refactor/skills-abstraction
-```
-
 ### 步骤 2：安装插件
 
 添加市场后，安装插件：
@@ -28,7 +22,7 @@
 ### 步骤 3：使用技能
 
 ```
-/credit-risk:mining
+在claude中直接提需求：“帮我做信贷变量挖掘，数据在 data/目录下”
 ```
 
 ---
@@ -39,7 +33,7 @@
 
 ```bash
 # 克隆仓库
-git clone --branch refactor/skills-abstraction https://github.com/frankawp/credit-risk-poc.git
+git clone https://github.com/frankawp/credit-risk-poc.git
 
 # 添加本地市场
 /plugin marketplace add ./credit-risk-poc

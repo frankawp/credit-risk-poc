@@ -93,6 +93,14 @@ python credit-risk-plugin/scripts/feature_registry.py register --name my_feature
 - 类型注解
 - 通用性：不耦合具体业务数据
 
+### 版本管理
+
+- **Push 前必须修改版本号**：每次推送到远程仓库前，需更新 `credit-risk-plugin/.claude-plugin/plugin.json` 中的 version 字段
+- 版本号格式：`major.minor.patch`（如 1.1.2）
+- 小修复/bugfix：增加 patch 版本号
+- 新功能：增加 minor 版本号
+- 重大变更：增加 major 版本号
+
 ### 文档更新
 
 - 新增变量时更新 `outputs/proposed_features/registry.json`

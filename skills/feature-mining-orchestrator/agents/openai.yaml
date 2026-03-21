@@ -1,7 +1,0 @@
-interface:
-  display_name: "信贷变量挖掘总控"
-  short_description: "面向业务人员的信贷变量挖掘总入口"
-  default_prompt: "请使用 $feature-mining-orchestrator 帮我规划并执行一轮信贷客户变量挖掘。"
-
-policy:
-  allow_implicit_invocation: true

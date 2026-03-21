@@ -24,10 +24,22 @@
 
 对每个特征计算：
 
-- `univariate_roc_auc`
-- `univariate_pr_auc`
-- `recall_at_topk`
-- `lift_top_decile`
+- `univariate_roc_auc` - ROC 曲线下面积
+- `univariate_pr_auc` - PR 曲线下面积
+- `recall_at_topk` - Top-K 召回率
+- `lift_top_decile` - Top 10% Lift 值
+- `iv` - Information Value 信息价值
+
+### IV 值解释
+
+IV (Information Value) 衡量变量的预测能力：
+
+| IV 范围 | 预测能力 |
+|---------|----------|
+| IV < 0.02 | 无预测能力 |
+| 0.02 ≤ IV < 0.1 | 弱预测能力 |
+| 0.1 ≤ IV < 0.3 | 中等预测能力 |
+| IV ≥ 0.3 | 强预测能力 |
 
 当前阈值：
 

@@ -41,11 +41,90 @@ def _lift_top_decile(y_true: np.ndarray, scores: np.ndarray) -> float:
     return float(y_true[order].mean() / baseline)
 
 
+def _calculate_iv(
+    x: np.ndarray,
+    y: np.ndarray,
+    n_bins: int = 10,
+) -> float:
+    """计算 IV (Information Value) 值。
+
+    IV 值解释：
+    - IV < 0.02: 无预测能力
+    - 0.02 ≤ IV < 0.1: 弱预测能力
+    - 0.1 ≤ IV < 0.3: 中等预测能力
+    - IV ≥ 0.3: 强预测能力
+
+    参数：
+        x: 特征值数组
+        y: 目标变量数组（0/1）
+        n_bins: 分箱数量
+
+    返回：
+        IV 值
+    """
+    # 移除缺失值
+    valid_mask = ~(np.isnan(x) | np.isnan(y))
+    x_valid = x[valid_mask]
+    y_valid = y[valid_mask]
+
+    if len(x_valid) == 0 or len(np.unique(x_valid)) < 2:
+        return 0.0
+
+    # 分箱
+    try:
+        # 使用等频分箱
+        bins = np.percentile(x_valid, np.linspace(0, 100, n_bins + 1))
+        bins = np.unique(bins)  # 去重，处理重复边界
+        if len(bins) < 2:
+            return 0.0
+
+        # 确保边界覆盖所有值
+        bins[0] = -np.inf
+        bins[-1] = np.inf
+
+        bin_indices = np.digitize(x_valid, bins[1:-1])
+    except Exception:
+        return 0.0
+
+    # 计算每箱的好坏客户数
+    total_good = (y_valid == 0).sum()
+    total_bad = (y_valid == 1).sum()
+
+    if total_good == 0 or total_bad == 0:
+        return 0.0
+
+    iv = 0.0
+    for i in range(len(bins) - 1):
+        mask = bin_indices == i
+        if mask.sum() == 0:
+            continue
+
+        good_count = (y_valid[mask] == 0).sum()
+        bad_count = (y_valid[mask] == 1).sum()
+
+        # 计算占比
+        good_rate = good_count / total_good
+        bad_rate = bad_count / total_bad
+
+        # 避免除零
+        if good_rate < 1e-10:
+            good_rate = 1e-10
+        if bad_rate < 1e-10:
+            bad_rate = 1e-10
+
+        # 计算 WOE 和 IV
+        woe = np.log(good_rate / bad_rate)
+        iv += (good_rate - bad_rate) * woe
+
+    return float(iv)
+
+
 def evaluate_univariate(
     frame: pd.DataFrame,
     id_col: str,
     target_col: str,
     topk_ratio: float = 0.1,
+    n_bins: int = 10,
 ) -> pd.DataFrame:
     """执行单变量评估。
 
@@ -54,6 +133,7 @@ def evaluate_univariate(
         id_col: ID 列名
         target_col: 目标列名
         topk_ratio: Top-K 比例（默认 0.1）
+        n_bins: IV 计算的分箱数量（默认 10）
 
     返回：
         包含各特征评估指标的 DataFrame
@@ -78,6 +158,7 @@ def evaluate_univariate(
                 "univariate_pr_auc": float(y.mean()),
                 "recall_at_topk": 0.0,
                 "lift_top_decile": 1.0,
+                "iv": 0.0,
             })
             continue
 
@@ -101,11 +182,15 @@ def evaluate_univariate(
             recall = _recall_at_topk(y, scores, topk_ratio)
             lift = _lift_top_decile(y, scores)
 
+            # 计算 IV 值
+            iv = _calculate_iv(x, y, n_bins)
+
         except ValueError:
             auc = 0.5
             ap = float(y.mean())
             recall = 0.0
             lift = 1.0
+            iv = 0.0
 
         rows.append({
             "feature_name": col,
@@ -113,6 +198,7 @@ def evaluate_univariate(
             "univariate_pr_auc": float(ap),
             "recall_at_topk": float(recall),
             "lift_top_decile": float(lift),
+            "iv": float(iv),
         })
 
     return pd.DataFrame(rows)

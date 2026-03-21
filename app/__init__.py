@@ -1,2 +1,0 @@
-"""Streamlit viewer app package."""
-

@@ -46,11 +46,6 @@
 - `outputs/selection/feature_selection_report.json`
   - 筛选摘要
 
-## viewer
-
-- Streamlit 入口：`app/streamlit_app.py`
-- 用途：按流程查看候选池、注册表和筛选结果
-
 ## 口径提醒
 
 - 当前仓库允许 `semantic_feature_matrix` 是全量，而 `auto/candidate_pool/selected` 是抽样

@@ -1,7 +1,0 @@
-interface:
-  display_name: "结果导航与解读"
-  short_description: "导航 outputs 产物并解释特征与结果"
-  default_prompt: "请使用 $feature-mining-results-navigator 帮我解释 candidate pool 和筛选结果。"
-
-policy:
-  allow_implicit_invocation: true

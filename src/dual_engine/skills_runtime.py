@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
@@ -62,6 +63,46 @@ def _read_parquet(path: Path) -> pd.DataFrame | None:
 
 def _check_required(paths: dict[str, Path]) -> list[str]:
     return [name for name, path in paths.items() if not path.exists()]
+
+
+def _archive_artifact_map(workspace_root: Path, archive_root: Path) -> dict[str, str]:
+    project_root = archive_root / "project"
+    relative_project = project_root.relative_to(archive_root)
+    candidates = {
+        "candidate_pool_summary": (
+            workspace_root / "outputs/candidate_pool/candidate_pool_summary.json",
+            relative_project / "outputs/candidate_pool/candidate_pool_summary.json",
+        ),
+        "candidate_pool": (
+            workspace_root / "outputs/candidate_pool/candidate_pool.parquet",
+            relative_project / "outputs/candidate_pool/candidate_pool.parquet",
+        ),
+        "feature_registry": (
+            workspace_root / "outputs/candidate_pool/registry/feature_registry.csv",
+            relative_project / "outputs/candidate_pool/registry/feature_registry.csv",
+        ),
+        "composite_feature_spec": (
+            workspace_root / "outputs/candidate_pool/registry/composite_feature_spec.csv",
+            relative_project / "outputs/candidate_pool/registry/composite_feature_spec.csv",
+        ),
+        "selection_summary": (
+            workspace_root / "outputs/selection/feature_selection_report.json",
+            relative_project / "outputs/selection/feature_selection_report.json",
+        ),
+        "feature_scorecard": (
+            workspace_root / "outputs/selection/feature_scorecard.csv",
+            relative_project / "outputs/selection/feature_scorecard.csv",
+        ),
+        "selected_features": (
+            workspace_root / "outputs/selection/selected_features.parquet",
+            relative_project / "outputs/selection/selected_features.parquet",
+        ),
+    }
+    artifact_map: dict[str, str] = {"project_root": str(relative_project)}
+    for key, (source_path, relative_path) in candidates.items():
+        if source_path.exists():
+            artifact_map[key] = str(relative_path)
+    return artifact_map
 
 
 def _enrich_auto_registry(frame: pd.DataFrame) -> pd.DataFrame:
@@ -422,8 +463,21 @@ def archive_latest_run(
     base_dir = base_dir or Path(".")
     topic_slug = re.sub(r"[^\w\u4e00-\u9fff-]+", "_", topic).strip("_") or "feature_mining"
     date_prefix = datetime.now().strftime("%Y-%m-%d")
-    archive_dir = base_dir / "docs" / "analysis_runs" / f"{date_prefix}_{topic_slug}"
-    archive_dir.mkdir(parents=True, exist_ok=True)
+    workspace_root = base_dir.resolve()
+    archive_dir = workspace_root / "archives" / "analysis_run" / f"{date_prefix}_{topic_slug}"
+    if archive_dir.exists():
+        return _result(
+            status="error",
+            step="archive_run",
+            artifacts={},
+            summary={"archive_dir": str(archive_dir)},
+            warnings=[f"归档目录已存在：{archive_dir}"],
+            next_actions=["更换 topic，或先手动处理已有归档目录。"],
+        )
+    conclusion_dir = archive_dir / "conclusion"
+    project_dir = archive_dir / "project"
+    conclusion_dir.mkdir(parents=True, exist_ok=False)
+    project_dir.mkdir(parents=True, exist_ok=False)
 
     candidate_summary_path = paths.candidate_dir / "candidate_pool_summary.json"
     selection_summary_path = paths.selection_dir / "feature_selection_report.json"
@@ -443,12 +497,17 @@ def archive_latest_run(
             f"当前语义特征矩阵为 {len(semantic_matrix)} 行，而候选池为 {len(candidate_pool)} 行，存在口径差异。"
         )
 
-    run_summary = archive_dir / "run_summary.md"
-    artifacts = archive_dir / "artifacts.md"
-    open_questions = archive_dir / "open_questions.md"
+    artifact_map = _archive_artifact_map(workspace_root, archive_dir)
+    top_level_entries = [
+        item for item in workspace_root.iterdir()
+        if item.name not in {"data", "archives"} and not item.name.startswith(".")
+    ]
+    archived_entry_names = [item.name for item in top_level_entries]
 
-    run_summary.write_text(
-        f"# 本轮挖掘摘要\n\n"
+    summary_path = conclusion_dir / "summary.md"
+    artifacts_path = conclusion_dir / "artifacts.json"
+    summary_path.write_text(
+        "# 本轮挖掘摘要\n\n"
         f"- 日期：{date_prefix}\n"
         f"- 主题：{topic}\n"
         f"- 任务类型：{task_type}\n"
@@ -457,48 +516,44 @@ def archive_latest_run(
         f"- 语义特征数：{candidate_summary.get('semantic_feature_count')}\n"
         f"- 组合特征数：{candidate_summary.get('composite_feature_count')}\n"
         f"- 入选特征数：{selection_summary.get('selected_feature_count')}\n"
+        f"- 归档项目目录：project/\n"
+        f"- 已归档顶层条目数：{len(archived_entry_names)}\n"
         f"- 备注：{notes or '无'}\n"
     )
-
-    artifact_lines = [
-        "# 关键产物",
-        "",
-        f"- 候选池摘要：{candidate_summary_path if candidate_summary_path.exists() else '未生成'}",
-        f"- 候选池宽表：{paths.candidate_dir / 'candidate_pool.parquet' if (paths.candidate_dir / 'candidate_pool.parquet').exists() else '未生成'}",
-        f"- 特征注册表：{registry_path if registry_path.exists() else '未生成'}",
-        f"- 组合特征说明：{composite_spec_path if composite_spec_path.exists() else '未生成'}",
-        f"- 筛选摘要：{selection_summary_path if selection_summary_path.exists() else '未生成'}",
-        f"- 评分卡：{paths.selection_dir / 'feature_scorecard.csv' if (paths.selection_dir / 'feature_scorecard.csv').exists() else '未生成'}",
-    ]
-    artifacts.write_text("\n".join(artifact_lines) + "\n")
-
-    open_question_lines = [
-        "# 开放问题",
-        "",
-    ]
     if warnings:
-        open_question_lines.extend([f"- {warning}" for warning in warnings])
-    else:
-        open_question_lines.append("- 当前未发现新的口径冲突；下一轮可继续扩展 collusion 主题。")
-    if registry is not None:
-        open_question_lines.append(f"- 当前注册表共 {len(registry)} 个候选变量，后续可补充业务优先级标签。")
-    if composite_spec is not None:
-        open_question_lines.append(f"- 当前组合特征说明表共 {len(composite_spec)} 个特征，可继续增加更强的交叉逻辑。")
-    open_questions.write_text("\n".join(open_question_lines) + "\n")
+        summary_path.write_text(
+            summary_path.read_text() + "\n## 口径提醒\n\n" + "\n".join(f"- {warning}" for warning in warnings) + "\n"
+        )
+
+    artifacts_payload = {
+        "topic": topic,
+        "task_type": task_type,
+        "archive_dir": str(archive_dir.relative_to(workspace_root)),
+        "project_dir": "project",
+        "conclusion_dir": "conclusion",
+        "archived_entries": archived_entry_names,
+        "artifacts": artifact_map,
+        "warnings": warnings,
+    }
+    artifacts_path.write_text(json.dumps(artifacts_payload, indent=2, ensure_ascii=False))
+
+    for item in top_level_entries:
+        shutil.move(str(item), str(project_dir / item.name))
 
     return _result(
         status="success",
         step="archive_run",
         artifacts={
-            "run_summary": str(run_summary),
-            "artifacts": str(artifacts),
-            "open_questions": str(open_questions),
+            "summary": str(summary_path.relative_to(workspace_root)),
+            "artifacts": str(artifacts_path.relative_to(workspace_root)),
+            "project_dir": str(project_dir.relative_to(workspace_root)),
         },
         summary={
             "archive_dir": str(archive_dir),
             "topic": topic,
+            "archived_entries": archived_entry_names,
             "warnings_count": len(warnings),
         },
         warnings=warnings,
-        next_actions=["将本轮归档链接给业务同学，或基于开放问题继续设计下一轮变量。"],
+        next_actions=["当前工作区应只剩 data/ 和 archives/；下一轮挖掘请在干净工作区继续。"],
     )

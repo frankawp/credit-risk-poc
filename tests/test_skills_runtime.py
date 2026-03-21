@@ -162,15 +162,20 @@ class SkillsRuntimeTest(unittest.TestCase):
             registry = pd.read_csv(candidate / "registry" / "feature_registry.csv")
             self.assertEqual(set(registry["feature_source"]), {"auto", "semantic", "composite"})
 
-    def test_archive_latest_run_creates_markdown_files(self) -> None:
+    def test_archive_latest_run_moves_project_and_keeps_clean_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
+            (root / "data" / "raw").mkdir(parents=True)
             outputs = root / "outputs"
             candidate = outputs / "candidate_pool"
             selection = outputs / "selection"
             (candidate / "registry").mkdir(parents=True)
             (candidate / "semantic").mkdir(parents=True)
             selection.mkdir(parents=True)
+            (root / "docs").mkdir(parents=True)
+            (root / "src").mkdir(parents=True)
+            (root / "docs" / "note.md").write_text("doc")
+            (root / "src" / "main.py").write_text("print('ok')\n")
             paths = EnginePaths(
                 raw_dir=root / "data" / "raw",
                 output_dir=outputs,
@@ -202,18 +207,79 @@ class SkillsRuntimeTest(unittest.TestCase):
 
             self.assertEqual(result["status"], "success")
             archive_dir = Path(result["summary"]["archive_dir"])
-            self.assertTrue((archive_dir / "run_summary.md").exists())
-            self.assertTrue((archive_dir / "artifacts.md").exists())
-            self.assertTrue((archive_dir / "open_questions.md").exists())
+            self.assertTrue((archive_dir / "conclusion" / "summary.md").exists())
+            self.assertTrue((archive_dir / "conclusion" / "artifacts.json").exists())
+            self.assertTrue((archive_dir / "project" / "outputs" / "candidate_pool" / "candidate_pool_summary.json").exists())
+            self.assertTrue((archive_dir / "project" / "src" / "main.py").exists())
+            self.assertEqual(sorted(path.name for path in root.iterdir()), ["archives", "data"])
 
-    def test_skill_layout_exists(self) -> None:
+    def test_archive_latest_run_excludes_hidden_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "data" / "raw").mkdir(parents=True)
+            outputs = root / "outputs"
+            candidate = outputs / "candidate_pool"
+            selection = outputs / "selection"
+            (candidate / "registry").mkdir(parents=True)
+            (candidate / "semantic").mkdir(parents=True)
+            selection.mkdir(parents=True)
+            (root / "src").mkdir(parents=True)
+            (root / "src" / "main.py").write_text("print('ok')\n")
+            # 创建隐藏目录/文件
+            (root / ".git").mkdir()
+            (root / ".git" / "config").write_text("[core]")
+            (root / ".claude").mkdir()
+            (root / ".claude" / "settings.json").write_text("{}")
+            (root / ".venv").mkdir()
+            (root / ".gitignore").write_text("*.pyc\n")
+            paths = EnginePaths(
+                raw_dir=root / "data" / "raw",
+                output_dir=outputs,
+                candidate_dir=candidate,
+                selection_dir=selection,
+            )
+
+            (candidate / "candidate_pool_summary.json").write_text(
+                json.dumps(
+                    {
+                        "auto_feature_count": 1,
+                        "semantic_feature_count": 0,
+                        "composite_feature_count": 0,
+                        "candidate_pool_shape": [2, 2],
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            (selection / "feature_selection_report.json").write_text(
+                json.dumps({"selected_feature_count": 0}, ensure_ascii=False)
+            )
+            pd.DataFrame({"feature_name": ["a"]}).to_csv(candidate / "registry" / "feature_registry.csv", index=False)
+            pd.DataFrame({"feature_name": ["b"]}).to_csv(candidate / "registry" / "composite_feature_spec.csv", index=False)
+            pd.DataFrame({"SK_ID_CURR": [1]}).to_parquet(candidate / "semantic" / "semantic_feature_matrix.parquet", index=False)
+            pd.DataFrame({"SK_ID_CURR": [1]}).to_parquet(candidate / "candidate_pool.parquet", index=False)
+
+            with patch("dual_engine.skills_runtime.EnginePaths", return_value=paths):
+                result = archive_latest_run(topic="hidden_test", base_dir=root)
+
+            self.assertEqual(result["status"], "success")
+            # 隐藏目录/文件应留在工作区，不被移走
+            self.assertTrue((root / ".git" / "config").exists())
+            self.assertTrue((root / ".claude" / "settings.json").exists())
+            self.assertTrue((root / ".venv").exists())
+            self.assertTrue((root / ".gitignore").exists())
+            # 非隐藏目录应被归档
+            remaining = sorted(path.name for path in root.iterdir())
+            self.assertIn(".git", remaining)
+            self.assertIn(".claude", remaining)
+            self.assertIn(".venv", remaining)
+            self.assertIn(".gitignore", remaining)
+            self.assertIn("archives", remaining)
+            self.assertIn("data", remaining)
+            self.assertNotIn("src", remaining)
         root = Path(__file__).resolve().parents[1] / "skills"
         expected = [
             root / "feature-mining-orchestrator" / "SKILL.md",
             root / "feature-mining-orchestrator" / "agents" / "openai.yaml",
-            root / "feature-mining-semantic-ideation" / "SKILL.md",
-            root / "feature-mining-selection-interpreter" / "SKILL.md",
-            root / "feature-mining-results-navigator" / "SKILL.md",
             root / "feature-mining-orchestrator" / "scripts" / "run_auto_features.py",
             root / "feature-mining-orchestrator" / "scripts" / "run_semantic_features.py",
             root / "feature-mining-orchestrator" / "scripts" / "run_composite_features.py",
@@ -223,6 +289,14 @@ class SkillsRuntimeTest(unittest.TestCase):
         ]
         for path in expected:
             self.assertTrue(path.exists(), msg=f"缺少文件: {path}")
+        # 确认子 skill 已删除
+        removed = [
+            root / "feature-mining-semantic-ideation",
+            root / "feature-mining-selection-interpreter",
+            root / "feature-mining-results-navigator",
+        ]
+        for path in removed:
+            self.assertFalse(path.exists(), msg=f"应已删除: {path}")
 
 
 if __name__ == "__main__":

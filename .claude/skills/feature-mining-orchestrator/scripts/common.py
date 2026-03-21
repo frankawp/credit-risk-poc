@@ -11,8 +11,8 @@ def _find_project_root() -> Path:
     for ancestor in [current, *current.parents]:
         if (ancestor / "pyproject.toml").exists() or (ancestor / ".git").exists():
             return ancestor
-    # 兜底：回退到 scripts/ 的第 3 级父目录（skills/<name>/scripts/）
-    return Path(__file__).resolve().parents[3]
+    # 兜底：回退到 scripts/ 的第 4 级父目录（.claude/skills/<name>/scripts/）
+    return Path(__file__).resolve().parents[4]
 
 
 ROOT = _find_project_root()

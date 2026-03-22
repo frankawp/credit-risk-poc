@@ -1,116 +1,157 @@
 # Home Credit 案例示例
 
-本示例展示如何使用 credit-risk 插件进行信贷变量挖掘。
+本示例展示完整的信贷变量挖掘流程。
+
+## 目录结构
+
+```
+home_credit/
+├── 00_data_explorer/           # 数据探索
+│   └── explore_data.py         # 主键/外键检测、关系推断
+├── 01_entity_layer/            # 实体层构建
+│   └── build_entityset.py      # EntitySet 配置示例
+├── 02_feature_generation/      # 特征生成
+│   └── dual_engine.py          # Auto + Semantic 双引擎
+├── 03_composite_features/      # 组合特征
+│   └── build_composite.py      # 比率/交互/规则交叉
+├── 04_feature_selection/       # 特征筛选
+│   └── run_selection.py        # 完整筛选流水线
+├── CAPABILITY_ANALYSIS.md      # 代码能力分析
+└── README.md                   # 本文档
+```
 
 ## 数据准备
 
 从 [Kaggle Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk) 下载数据：
 
 ```bash
-# 数据文件应放置在 data/raw/home-credit-default-risk/ 目录
-data/raw/home-credit-default-risk/
+data/raw/
 ├── application_train.csv
 ├── application_test.csv
 ├── previous_application.csv
 ├── bureau.csv
+├── bureau_balance.csv
 ├── credit_card_balance.csv
-└── installments_payments.csv
+├── installments_payments.csv
+└── POS_CASH_balance.csv
 ```
 
-## 使用方法
+## 流程说明
 
-### 1. 数据探索
+### 0. Data Exploration（数据探索）
 
-```bash
-python credit-risk-plugin/scripts/data_explorer.py data/raw/home-credit-default-risk/
-```
-
-### 2. 使用示例变量
+理解数据结构，识别主键和外键：
 
 ```python
-import pandas as pd
-from examples.home_credit.features import (
-    build_consistency_features,
-    build_velocity_features,
-    build_cashout_features,
+from pathlib import Path
+
+# 导入探索模块
+import sys
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+
+from examples.home_credit.00_data_explorer.explore_data import (
+    explore_data_directory,
+    print_exploration_report,
 )
 
-# 加载数据
-app = pd.read_csv("data/raw/home-credit-default-risk/application_train.csv")
-previous = pd.read_csv("data/raw/home-credit-default-risk/previous_application.csv")
-bureau = pd.read_csv("data/raw/home-credit-default-risk/bureau.csv")
-credit_card = pd.read_csv("data/raw/home-credit-default-risk/credit_card_balance.csv")
-installments = pd.read_csv("data/raw/home-credit-default-risk/installments_payments.csv")
+# 探索数据目录
+report = explore_data_directory(
+    data_dir=Path("data/raw"),
+    sample_size=10000,
+    output_dir=Path("outputs/exploration"),
+)
 
-# 构建特征
-consistency_features = build_consistency_features(app, previous)
-velocity_features = build_velocity_features(previous, bureau)
-cashout_features = build_cashout_features(previous, credit_card, installments)
-
-# 合并特征
-features = consistency_features.merge(velocity_features, on="SK_ID_CURR", how="left")
-features = features.merge(cashout_features, on="SK_ID_CURR", how="left")
-
-# 保存
-features.to_parquet("outputs/features.parquet", index=False)
+# 打印报告
+print_exploration_report(report)
 ```
 
-### 3. 评估变量
+输出：
+- `exploration_report.json` - 完整探索报告
+- `relationship_guide.md` - 关系配置建议
 
-```bash
-python credit-risk-plugin/scripts/feature_evaluator.py outputs/features.parquet --target TARGET
-```
+### 1. Entity Layer（实体层）
 
-## 变量主题
-
-### 一致性主题 (consistency.py)
-
-| 变量名 | 业务假设 | 预期方向 |
-|--------|----------|----------|
-| consistency_employed_birth_ratio | 工作年限占年龄比例越高，职业越稳定 | 越低风险越大 |
-| consistency_contact_flag_sum | 联系方式越完整，用户越真实 | 越低风险越大 |
-| consistency_prev_credit_gap_ratio_mean | 申请与获批金额差距越大，审批一致性越差 | 越高风险越大 |
-
-### 高频申请主题 (velocity.py)
-
-| 变量名 | 业务假设 | 预期方向 |
-|--------|----------|----------|
-| velocity_prev_count_7d | 近7天申请次数越多，资金越紧张 | 越高风险越大 |
-| velocity_prev_count_30d | 近30天申请次数越多，多头借贷风险越高 | 越高风险越大 |
-| velocity_bureau_recent_credit_count_30d | 近30天征信查询次数越多，风险越高 | 越高风险越大 |
-
-### 套现倾向主题 (cashout.py)
-
-| 变量名 | 业务假设 | 预期方向 |
-|--------|----------|----------|
-| cashout_atm_ratio_mean | ATM取现比例越高，套现倾向越强 | 越高风险越大 |
-| cashout_fpd_severe_flag | 首期逾期超过30天是强风险信号 | 越高风险越大 |
-| cashout_installments_late_ratio | 分期还款逾期比例越高，还款习惯越差 | 越高风险越大 |
-
-## 自定义变量
-
-参考现有示例，创建自己的变量实现：
+配置数据表之间的关系：
 
 ```python
-# my_features.py
-import pandas as pd
+from engine import EntityConfig, EnginePaths
+from engine.entity import EntitySetBuilder
 
-def build_my_features(data_frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """
-    构建自定义特征。
+configs = [
+    EntityConfig(
+        name="applications",
+        file_path="application_train.csv",
+        index="SK_ID_CURR",
+        parent=None,
+    ),
+    EntityConfig(
+        name="previous_applications",
+        file_path="previous_application.csv",
+        index="SK_ID_PREV",
+        parent="applications",
+        foreign_key="SK_ID_CURR",
+    ),
+    # ... 更多实体
+]
 
-    参数:
-        data_frames: 表名到 DataFrame 的映射
-
-    返回:
-        DataFrame，索引为 SK_ID_CURR，列为自定义特征
-    """
-    # 实现你的变量计算逻辑
-    pass
+builder = EntitySetBuilder(paths=EnginePaths(data_dir="data/raw/"))
+entityset, frames = builder.build(sample_size=10000)
 ```
 
-## 注意事项
+### 2. Feature Generation（特征生成）
 
-- 此示例仅作演示，实际使用时需要根据业务场景调整
-- 数据文件不包含在仓库中，需要自行下载
-- 变量效果需要在实际数据上验证
+双引擎生成候选特征：
+
+```python
+from engine.auto import generate_auto_features
+from engine.semantic import generate_semantic_features
+
+# Auto 特征（Featuretools）
+auto_result = generate_auto_features(entityset, target_entity="applications")
+
+# Semantic 特征（业务主题）
+semantic_result = generate_semantic_features(frames, anchor, themes=["velocity", "cashout"])
+```
+
+### 3. Composite Features（组合特征）
+
+基于业务逻辑组合特征：
+
+```python
+from engine.composite import CompositeFeatureSpec, build_composite_features
+
+specs = [
+    CompositeFeatureSpec(
+        feature_name="composite_credit_usage_ratio",
+        formula="AMT_BALANCE / AMT_CREDIT_LIMIT_ACTUAL",
+        base_features="AMT_BALANCE, AMT_CREDIT_LIMIT_ACTUAL",
+        business_definition="信用卡额度使用率",
+        risk_direction="higher_is_riskier",
+    ),
+]
+
+enhanced, specs_frame = build_composite_features(feature_matrix, specs)
+```
+
+### 4. Feature Selection（特征筛选）
+
+完整筛选流水线：
+
+```python
+from engine.selection import run_feature_selection, run_stability_check
+from engine import SelectionConfig
+
+# 基础筛选 + 单变量评估
+config = SelectionConfig(id_col="SK_ID_CURR", target_col="TARGET")
+result = run_feature_selection(feature_matrix, config)
+
+# 稳定性检查
+stability_config = {"time_col": "MONTHS_BALANCE"}
+report, summary = run_stability_check(feature_matrix, stability_config)
+```
+
+## 参考文档
+
+- [代码能力分析](CAPABILITY_ANALYSIS.md)
+- [筛选逻辑说明](../../references/selection_logic.md)
+- [方法论概述](../../references/methodology.md)

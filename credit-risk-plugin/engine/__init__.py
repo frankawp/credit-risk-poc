@@ -15,7 +15,6 @@ from .config import (
     AutoFeatureConfig,
     EnginePaths,
     EntityConfig,
-    FieldMapping,
     SelectionConfig,
 )
 
@@ -24,6 +23,5 @@ __all__ = [
     "AutoFeatureConfig",
     "EnginePaths",
     "EntityConfig",
-    "FieldMapping",
     "SelectionConfig",
 ]

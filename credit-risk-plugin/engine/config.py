@@ -32,56 +32,6 @@ class EntityConfig:
 
 
 @dataclass
-class FieldMapping:
-    """字段映射。
-
-    将通用字段名映射到实际字段名，实现业务解耦。
-    """
-
-    # 实体标识
-    entity_id: str = "entity_id"
-    target: str = "target"
-
-    # 时间字段（相对天数，负数表示距今天数）
-    decision_date: str | None = None        # 申请决策日期
-    credit_date: str | None = None          # 征信查询日期
-    payment_date: str | None = None         # 还款日期
-    due_date: str | None = None             # 应还日期
-
-    # 金额字段
-    application_amount: str | None = None   # 申请金额
-    credit_amount: str | None = None        # 批准金额
-    payment_amount: str | None = None       # 还款金额
-    due_amount: str | None = None           # 应还金额
-
-    # 行为字段
-    atm_drawings: str | None = None         # ATM取现金额
-    total_drawings: str | None = None       # 总取现金额
-
-    # 状态字段
-    contract_status: str | None = None      # 合同状态
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            k: v for k, v in {
-                "entity_id": self.entity_id,
-                "target": self.target,
-                "decision_date": self.decision_date,
-                "credit_date": self.credit_date,
-                "payment_date": self.payment_date,
-                "due_date": self.due_date,
-                "application_amount": self.application_amount,
-                "credit_amount": self.credit_amount,
-                "payment_amount": self.payment_amount,
-                "due_amount": self.due_amount,
-                "atm_drawings": self.atm_drawings,
-                "total_drawings": self.total_drawings,
-                "contract_status": self.contract_status,
-            }.items() if v is not None
-        }
-
-
-@dataclass
 class AutoFeatureConfig:
     """自动特征配置。"""
 

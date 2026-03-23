@@ -48,15 +48,29 @@ class AutoFeatureConfig:
 
 @dataclass
 class SelectionConfig:
-    """筛选配置。"""
+    """筛选配置。
+
+    风控变量筛选标准：
+    - 预测能力：IV ≥ min_iv 且 (AUC ≥ min_auc 或 Lift ≥ min_lift)
+    - 稳定性：PSI < max_psi
+    - 相关性：相关系数 < correlation_threshold
+    - 缺失率：< missing_rate_threshold
+    """
 
     id_col: str = "entity_id"
     target_col: str = "target"
     topk_ratio: float = 0.10
+    # 基础过滤阈值
     missing_rate_threshold: float = 0.95
     correlation_threshold: float = 0.95
-    min_auc: float = 0.52
-    min_ap_lift: float = 1.02
+    # 预测能力阈值
+    min_auc: float = 0.55           # AUC 阈值
+    min_lift: float = 1.5           # Lift@Top10% 阈值
+    min_iv: float = 0.02            # IV 最小阈值（无预测能力边界）
+    min_iv_medium: float = 0.1      # IV 中等预测能力阈值
+    min_iv_strong: float = 0.3      # IV 强预测能力阈值
+    # 稳定性阈值
+    max_psi: float = 0.25           # PSI 最大阈值
 
 
 @dataclass

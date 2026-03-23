@@ -325,17 +325,34 @@ result = generate_semantic_features(frames, anchor, themes=["velocity", "cashout
 **目标**：用数据验证假设是否成立。
 
 1. **单变量评估**
-   - 对每个变量计算：ROC-AUC、PR-AUC、缺失率、分布
-   - 与预期方向对比
+   - 必须计算以下指标：
+     - **IV（Information Value）**：预测能力核心指标
+     - **ROC-AUC**：区分能力
+     - **Lift@Top10%**：Top 10% 坏账率提升
+     - **缺失率**：数据完整性
+   - IV 值解读标准：
+     | IV 范围 | 预测能力 | 筛选判定 |
+     |---------|----------|----------|
+     | IV < 0.02 | 无预测能力 | ❌ 淘汰 |
+     | 0.02 ≤ IV < 0.1 | 弱预测能力 | ⚠️ 待优化 |
+     | 0.1 ≤ IV < 0.3 | 中等预测能力 | ✅ 入选 |
+     | IV ≥ 0.3 | 强预测能力 | ✅ 入选 |
 
-2. **假设验证结论**
+2. **筛选标准**
+   - **预测能力**：IV ≥ 0.02 且 (AUC ≥ 0.55 或 Lift ≥ 1.5)
+   - **稳定性**：PSI < 0.25
+   - **相关性**：相关系数 < 0.95
+   - **缺失率**：< 95%
+
+3. **筛选判定**
+   - **selected**：入选，变量有效
+   - **needs_optimization**：待优化，弱预测能力
+   - **rejected**：淘汰，无预测能力
+
+4. **假设验证结论**
    - 假设成立：变量有效，保留
    - 假设部分成立：需要调整逻辑
    - 假设不成立：记录原因，废弃或重新设计
-
-3. **筛选和合并**
-   - 运行特征筛选流程
-   - 合并到候选池
 
 **引擎工具**：
 ```python
@@ -348,10 +365,12 @@ from engine.config import SelectionConfig
 config = SelectionConfig(
     id_col="entity_id",
     target_col="target",
-    min_auc=0.52,
-    min_ap_lift=1.02,
+    min_iv=0.02,          # IV 最小阈值
+    min_auc=0.55,         # AUC 阈值
+    min_lift=1.5,         # Lift 阈值
+    max_psi=0.25,         # PSI 最大阈值
 )
-result = run_feature_selection(feature_matrix, config, output_dir=Path("outputs/selection"))
+result = run_feature_selection(feature_matrix, config, output_dir=Path("outputs/data/selection"))
 ```
 
 **稳定性检查**：

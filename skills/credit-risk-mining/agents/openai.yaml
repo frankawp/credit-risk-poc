@@ -1,0 +1,4 @@
+interface:
+  display_name: "Credit Risk Mining"
+  short_description: "Explore, design, evaluate, and archive credit-risk features"
+  default_prompt: "Use $credit-risk-mining to help me mine credit-risk variables from local tables."

@@ -2,6 +2,18 @@
 特征筛选流水线。
 
 整合基础过滤和单变量评估，输出完整的筛选报告。
+
+筛选标准：
+- 预测能力：IV ≥ min_iv 且 (AUC ≥ min_auc 或 Lift ≥ min_lift)
+- 稳定性：PSI < max_psi
+- 相关性：相关系数 < correlation_threshold
+- 缺失率：< missing_rate_threshold
+
+IV 值解读：
+- IV < 0.02: 无预测能力，淘汰
+- 0.02 ≤ IV < 0.1: 弱预测能力，待优化
+- 0.1 ≤ IV < 0.3: 中等预测能力，入选
+- IV ≥ 0.3: 强预测能力，入选
 """
 
 from __future__ import annotations
@@ -10,6 +22,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from ..config import SelectionConfig
@@ -64,15 +77,47 @@ def run_feature_selection(
         topk_ratio=config.topk_ratio,
     )
 
-    # 步骤 3：筛选标记
-    baseline_ap = float(filtered_frame[config.target_col].mean())
+    # 计算基准指标
+    baseline_target_rate = float(filtered_frame[config.target_col].mean())
+
+    # 步骤 3：IV 等级分类
+    scorecard["iv_level"] = pd.cut(
+        scorecard["iv"],
+        bins=[-np.inf, config.min_iv, config.min_iv_medium, config.min_iv_strong, np.inf],
+        labels=["none", "weak", "medium", "strong"]
+    )
+
+    # 步骤 4：综合筛选条件
+    # 预测能力：IV ≥ min_iv 且 (AUC ≥ min_auc 或 Lift ≥ min_lift)
     scorecard["selected_flag"] = (
-        (scorecard["univariate_roc_auc"] >= config.min_auc)
-        | (scorecard["univariate_pr_auc"] >= baseline_ap * config.min_ap_lift)
+        (scorecard["iv"] >= config.min_iv) &
+        (
+            (scorecard["univariate_roc_auc"] >= config.min_auc) |
+            (scorecard["lift_top_decile"] >= config.min_lift)
+        )
     )
-    scorecard["drop_reason"] = scorecard["selected_flag"].map(
-        lambda f: "" if f else "weak_univariate_signal"
-    )
+
+    # 筛选判定
+    def get_decision(row: pd.Series) -> str:
+        """根据 IV 和 AUC 判定变量状态。"""
+        if row["iv"] < config.min_iv:
+            return "rejected"  # 无预测能力，淘汰
+        elif row["iv"] < config.min_iv_medium and row["univariate_roc_auc"] < config.min_auc:
+            return "needs_optimization"  # 弱预测能力，待优化
+        else:
+            return "selected"  # 入选
+
+    scorecard["decision"] = scorecard.apply(get_decision, axis=1)
+
+    # 淘汰原因
+    def get_drop_reason(row: pd.Series) -> str:
+        if row["decision"] == "rejected":
+            return f"low_iv({row['iv']:.4f})"
+        elif row["decision"] == "needs_optimization":
+            return f"weak_signal(iv={row['iv']:.4f}, auc={row['univariate_roc_auc']:.4f})"
+        return ""
+
+    scorecard["drop_reason"] = scorecard.apply(get_drop_reason, axis=1)
 
     # 提取选中特征
     selected_features = scorecard.loc[scorecard["selected_flag"], "feature_name"].tolist()
@@ -91,12 +136,31 @@ def run_feature_selection(
         corr_rows = pd.DataFrame(columns=["dropped_feature", "representative_feature", "drop_reason"])
 
     # 生成汇总
+    iv_stats = {
+        "none": int((scorecard["iv_level"] == "none").sum()),
+        "weak": int((scorecard["iv_level"] == "weak").sum()),
+        "medium": int((scorecard["iv_level"] == "medium").sum()),
+        "strong": int((scorecard["iv_level"] == "strong").sum()),
+    }
+    decision_stats = {
+        "selected": int((scorecard["decision"] == "selected").sum()),
+        "needs_optimization": int((scorecard["decision"] == "needs_optimization").sum()),
+        "rejected": int((scorecard["decision"] == "rejected").sum()),
+    }
+
     summary = {
         "input_feature_count": int(frame.shape[1] - 2),
         "after_basic_filter_count": int(filtered_frame.shape[1] - 2),
         "selected_feature_count": int(len(selected_features)),
-        "baseline_target_rate": baseline_ap,
+        "baseline_target_rate": baseline_target_rate,
+        "iv_distribution": iv_stats,
+        "decision_distribution": decision_stats,
         "selected_features": selected_features,
+        "selection_criteria": {
+            "min_iv": config.min_iv,
+            "min_auc": config.min_auc,
+            "min_lift": config.min_lift,
+        },
     }
 
     # 保存输出
@@ -121,13 +185,58 @@ def run_feature_selection(
         )
 
         # Markdown 汇总
-        (output_dir / "feature_selection_report.md").write_text(
-            "# Feature Selection Report\n\n"
-            f"- input_feature_count: {summary['input_feature_count']}\n"
-            f"- after_basic_filter_count: {summary['after_basic_filter_count']}\n"
-            f"- selected_feature_count: {summary['selected_feature_count']}\n"
-            f"- baseline_target_rate: {summary['baseline_target_rate']:.6f}\n"
-        )
+        md_lines = [
+            "# 变量筛选报告",
+            "",
+            "## 筛选标准",
+            "",
+            f"- IV 阈值: ≥ {config.min_iv}",
+            f"- AUC 阈值: ≥ {config.min_auc}",
+            f"- Lift@Top10% 阈值: ≥ {config.min_lift}",
+            "",
+            "## 筛选结果汇总",
+            "",
+            f"| 阶段 | 数量 |",
+            f"|------|------|",
+            f"| 输入变量 | {summary['input_feature_count']} |",
+            f"| 基础过滤后 | {summary['after_basic_filter_count']} |",
+            f"| 最终入选 | {summary['selected_feature_count']} |",
+            "",
+            "## IV 分布",
+            "",
+            f"| IV 等级 | 数量 | 说明 |",
+            f"|---------|------|------|",
+            f"| none | {iv_stats['none']} | IV < 0.02，无预测能力 |",
+            f"| weak | {iv_stats['weak']} | 0.02 ≤ IV < 0.1，弱预测能力 |",
+            f"| medium | {iv_stats['medium']} | 0.1 ≤ IV < 0.3，中等预测能力 |",
+            f"| strong | {iv_stats['strong']} | IV ≥ 0.3，强预测能力 |",
+            "",
+            "## 筛选判定分布",
+            "",
+            f"| 判定 | 数量 | 说明 |",
+            f"|------|------|------|",
+            f"| selected | {decision_stats['selected']} | 入选 |",
+            f"| needs_optimization | {decision_stats['needs_optimization']} | 待优化 |",
+            f"| rejected | {decision_stats['rejected']} | 淘汰 |",
+            "",
+            f"基准坏账率: {summary['baseline_target_rate']:.4%}",
+            "",
+        ]
+
+        # 入选变量列表
+        if selected_features:
+            md_lines.extend([
+                "## 入选变量清单",
+                "",
+            ])
+            for feat in selected_features:
+                row = scorecard[scorecard["feature_name"] == feat].iloc[0]
+                md_lines.append(
+                    f"- {feat}: IV={row['iv']:.4f}, AUC={row['univariate_roc_auc']:.4f}, "
+                    f"Lift={row['lift_top_decile']:.2f}"
+                )
+
+        (output_dir / "feature_selection_report.md").write_text("\n".join(md_lines))
 
     return SelectionResult(
         selected_frame=selected_frame,

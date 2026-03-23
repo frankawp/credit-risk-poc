@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -134,7 +133,13 @@ def create_cross_feature(
         "*": "*",
         "/": "/",
     }
-    formula = f"fillna({col1}, 0) {op_map.get(operator, '*')} fillna({col2}, 0)"
+    if operator == "/":
+        formula = (
+            f"np.where(fillna({col2}, 0) == 0, np.nan, "
+            f"fillna({col1}, 0) / fillna({col2}, 0))"
+        )
+    else:
+        formula = f"fillna({col1}, 0) {op_map.get(operator, '*')} fillna({col2}, 0)"
     return CompositeFeatureSpec(
         feature_name=name,
         formula=formula,
@@ -160,7 +165,7 @@ def create_flag_feature(
         business_definition: 业务定义
         risk_direction: 风险方向
     """
-    formula = f"1 if {condition} else 0"
+    formula = f"np.where({condition}, 1, 0)"
     return CompositeFeatureSpec(
         feature_name=name,
         formula=formula,

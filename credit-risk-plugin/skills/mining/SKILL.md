@@ -1,5 +1,5 @@
 ---
-name: feature-mining
+name: mining
 description: 当用户想发起一轮信贷变量挖掘、从业务问题落到变量生成与筛选、串联解释现有产物，或归档分析过程时使用。
 ---
 

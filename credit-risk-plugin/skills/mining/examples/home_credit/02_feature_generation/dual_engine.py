@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from engine import EnginePaths, AutoFeatureConfig
+from engine import AutoFeatureConfig
 from engine.auto import generate_auto_features, check_featuretools_available
 from engine.semantic import (
     generate_semantic_features,
@@ -35,11 +35,27 @@ def check_environment():
     return result
 
 
+def _detect_anchor_frame(
+    frames: dict[str, pd.DataFrame],
+    target_entity: str,
+) -> pd.DataFrame:
+    """获取锚点表。"""
+    if target_entity in frames:
+        return frames[target_entity]
+    if not frames:
+        raise ValueError("frames 为空，无法生成候选特征")
+    return next(iter(frames.values()))
+
+
 # ============================================================================
 # Auto Engine - 自动特征生成
 # ============================================================================
 
-def run_auto_features(entityset, output_dir: Path) -> pd.DataFrame:
+def run_auto_features(
+    entityset,
+    output_dir: Path,
+    target_entity: str = "applications",
+) -> pd.DataFrame:
     """运行自动特征引擎。
 
     使用 Featuretools 的 DFS (Deep Feature Synthesis) 自动生成：
@@ -56,18 +72,17 @@ def run_auto_features(entityset, output_dir: Path) -> pd.DataFrame:
     """
     config = AutoFeatureConfig(
         max_depth=2,           # 聚合深度
-        max_features=100,      # 最大特征数
         sample_size=10000,     # 采样大小
     )
 
     result = generate_auto_features(
         entityset=entityset,
+        target_entity=target_entity,
         config=config,
         output_dir=output_dir / "auto",
     )
 
-    print(f"自动特征数量: {result.feature_matrix.shape[1] - 2}")  # 减去 ID 和 TARGET
-    print(f"特征类型: {result.feature_info['types']}")
+    print(f"自动特征数量: {len(result.feature_names)}")
 
     return result.feature_matrix
 
@@ -76,7 +91,11 @@ def run_auto_features(entityset, output_dir: Path) -> pd.DataFrame:
 # Semantic Engine - 语义特征生成
 # ============================================================================
 
-def run_semantic_features(frames: dict, output_dir: Path) -> pd.DataFrame:
+def run_semantic_features(
+    frames: dict[str, pd.DataFrame],
+    anchor: pd.DataFrame,
+    output_dir: Path,
+) -> pd.DataFrame:
     """运行语义特征引擎。
 
     基于业务假设生成主题特征：
@@ -102,11 +121,13 @@ def run_semantic_features(frames: dict, output_dir: Path) -> pd.DataFrame:
     # 生成所有主题特征
     result = generate_semantic_features(
         frames=frames,
+        anchor=anchor,
         output_dir=output_dir / "semantic",
         themes=None,  # None = 全部主题
     )
 
-    print(f"语义特征数量: {result.feature_matrix.shape[1] - 2}")
+    semantic_features = [c for c in result.feature_matrix.columns if c not in anchor.columns]
+    print(f"语义特征数量: {len(semantic_features)}")
 
     return result.feature_matrix
 
@@ -186,19 +207,26 @@ def merge_candidate_pools(
 # 运行示例
 # ============================================================================
 
-def run_pipeline(entityset, frames: dict, output_dir: Path) -> pd.DataFrame:
+def run_pipeline(
+    entityset,
+    frames: dict[str, pd.DataFrame],
+    output_dir: Path,
+    target_entity: str = "applications",
+) -> pd.DataFrame:
     """运行完整的特征生成流水线。"""
     output_dir.mkdir(parents=True, exist_ok=True)
+    anchor = _detect_anchor_frame(frames, target_entity)
 
     # 1. 检查环境
     if not check_environment():
         print("跳过 Auto Engine，仅使用 Semantic Engine")
-
-    # 2. Auto 特征
-    auto_matrix = run_auto_features(entityset, output_dir)
+        auto_matrix = anchor.copy()
+    else:
+        # 2. Auto 特征
+        auto_matrix = run_auto_features(entityset, output_dir, target_entity=target_entity)
 
     # 3. Semantic 特征
-    semantic_matrix = run_semantic_features(frames, output_dir)
+    semantic_matrix = run_semantic_features(frames, anchor, output_dir)
 
     # 4. 合并
     candidate_pool = merge_candidate_pools(auto_matrix, semantic_matrix, output_dir)
@@ -207,11 +235,8 @@ def run_pipeline(entityset, frames: dict, output_dir: Path) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     # 假设已有 entityset 和 frames
-    # from examples.home_credit.01_entity_layer import build_entityset_quick
-    # entityset, frames = build_entityset_quick()
+    # 直接参考 ../01_entity_layer/build_entityset.py 中的 build_entityset_quick 调用方式
 
     output_dir = Path("outputs/run_001/features")
     # run_pipeline(entityset, frames, output_dir)

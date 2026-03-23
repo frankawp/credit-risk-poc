@@ -10,7 +10,6 @@
 """
 
 from pathlib import Path
-from dataclasses import dataclass
 
 import pandas as pd
 import numpy as np
@@ -40,17 +39,20 @@ def get_composite_specs() -> list[CompositeFeatureSpec]:
     """
     return [
         # ===== 比率类 =====
-        CompositeFeatureSpec(
-            feature_name="composite_credit_usage_ratio",
-            formula="AMT_BALANCE / AMT_CREDIT_LIMIT_ACTUAL",
-            base_features="AMT_BALANCE, AMT_CREDIT_LIMIT_ACTUAL",
+        create_cross_feature(
+            name="composite_credit_usage_ratio",
+            col1="AMT_BALANCE",
+            col2="AMT_CREDIT_LIMIT_ACTUAL",
+            operator="/",
             business_definition="信用卡额度使用率",
             risk_direction="higher_is_riskier",
-            notes="超过 0.8 表示高使用率",
         ),
         CompositeFeatureSpec(
             feature_name="composite_income_to_annuity_ratio",
-            formula="AMT_INCOME_TOTAL / AMT_ANNUITY",
+            formula=(
+                "np.where(fillna(AMT_ANNUITY, 0) == 0, np.nan, "
+                "fillna(AMT_INCOME_TOTAL, 0) / fillna(AMT_ANNUITY, 0))"
+            ),
             base_features="AMT_INCOME_TOTAL, AMT_ANNUITY",
             business_definition="收入覆盖年还款的能力",
             risk_direction="lower_is_riskier",
@@ -60,7 +62,7 @@ def get_composite_specs() -> list[CompositeFeatureSpec]:
         # ===== 交互类 =====
         CompositeFeatureSpec(
             feature_name="composite_velocity_x_external",
-            formula="prev_app_count_30d * (1 - EXT_SOURCE_2)",
+            formula="fillna(prev_app_count_30d, 0) * (1 - fillna(EXT_SOURCE_2, 0))",
             base_features="prev_app_count_30d, EXT_SOURCE_2",
             business_definition="短期申请密度 × 外部评分风险",
             risk_direction="higher_is_riskier",
@@ -68,13 +70,12 @@ def get_composite_specs() -> list[CompositeFeatureSpec]:
         ),
 
         # ===== 规则交叉类 =====
-        CompositeFeatureSpec(
-            feature_name="composite_high_risk_flag",
-            formula="1 if prev_reject_count > 0 and EXT_SOURCE_1 < 0.3 else 0",
+        create_flag_feature(
+            name="composite_high_risk_flag",
+            condition="(fillna(prev_reject_count, 0) > 0) & (fillna(EXT_SOURCE_1, 0) < 0.3)",
             base_features="prev_reject_count, EXT_SOURCE_1",
             business_definition="被拒历史 + 低外部评分组合标记",
             risk_direction="higher_is_riskier",
-            notes="二元标记，用于规则筛选",
         ),
     ]
 
@@ -87,7 +88,7 @@ def build_from_specs(
     feature_matrix: pd.DataFrame,
     specs: list[CompositeFeatureSpec],
     output_dir: Path,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """根据规格构建组合特征。
 
     参数：
@@ -96,24 +97,14 @@ def build_from_specs(
         output_dir: 输出目录
 
     返回：
-        添加了组合特征的特征矩阵
+        (添加了组合特征的特征矩阵, 组合特征规格表)
     """
-    result = build_composite_features(
+    enhanced_matrix, specs_frame = build_composite_features(
         frame=feature_matrix,
         specs=specs,
+        output_dir=output_dir,
     )
-
-    # 保存规格文档
-    spec_df = pd.DataFrame([{
-        "feature_name": s.feature_name,
-        "formula": s.formula,
-        "base_features": s.base_features,
-        "business_definition": s.business_definition,
-        "risk_direction": s.risk_direction,
-    } for s in specs])
-    spec_df.to_csv(output_dir / "composite_feature_specs.csv", index=False)
-
-    return result
+    return enhanced_matrix, specs_frame
 
 
 # ============================================================================
@@ -170,22 +161,31 @@ def build_velocity_risk_composite(frame: pd.DataFrame) -> pd.DataFrame:
     - 短期内多次申请 + 低外部评分 = 高风险
     - 申请被拒历史 + 再次申请 = 风险叠加
     """
-    result = frame.copy()
+    specs: list[CompositeFeatureSpec] = []
 
     # 申请密度风险
     if "prev_app_count_7d" in frame.columns and "EXT_SOURCE_2" in frame.columns:
-        result["composite_velocity_risk_score"] = create_interaction_feature(
-            frame, "prev_app_count_7d", "EXT_SOURCE_2", "multiply"
-        )
+        specs.append(CompositeFeatureSpec(
+            feature_name="composite_velocity_risk_score",
+            formula="fillna(prev_app_count_7d, 0) * (1 - fillna(EXT_SOURCE_2, 0))",
+            base_features="prev_app_count_7d, EXT_SOURCE_2",
+            business_definition="短期申请频率叠加低外部评分风险",
+            risk_direction="higher_is_riskier",
+        ))
 
     # 被拒后重新申请标记
-    if "prev_reject_count" in frame.columns:
-        result["composite_rejected_reapplicant"] = create_flag_feature(
-            frame,
-            condition="prev_reject_count > 0",
-            flag_value=1,
-        )
+    if "prev_reject_count" in frame.columns and "EXT_SOURCE_1" in frame.columns:
+        specs.append(create_flag_feature(
+            name="composite_rejected_reapplicant",
+            condition="(fillna(prev_reject_count, 0) > 0) & (fillna(EXT_SOURCE_1, 0) < 0.3)",
+            base_features="prev_reject_count, EXT_SOURCE_1",
+            business_definition="历史被拒且外部评分偏低的再申请标记",
+        ))
 
+    if not specs:
+        return frame.copy()
+
+    result, _ = build_composite_features(frame, specs)
     return result
 
 
@@ -216,7 +216,7 @@ def build_stability_risk_composite(frame: pd.DataFrame) -> pd.DataFrame:
 
 if __name__ == "__main__":
     # 假设已有特征矩阵
-    # from examples.home_credit.02_feature_generation import run_pipeline
+    # 直接参考 ../02_feature_generation/dual_engine.py 中的 run_pipeline 调用方式
     # feature_matrix = run_pipeline(...)
 
     output_dir = Path("outputs/run_001/composite")
@@ -224,7 +224,7 @@ if __name__ == "__main__":
 
     # 方法一：根据规格构建
     # specs = get_composite_specs()
-    # result = build_from_specs(feature_matrix, specs, output_dir)
+    # enhanced_matrix, specs_frame = build_from_specs(feature_matrix, specs, output_dir)
 
     # 方法二：按主题构建
     # result = build_velocity_risk_composite(feature_matrix)

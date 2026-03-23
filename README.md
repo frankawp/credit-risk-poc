@@ -1,14 +1,16 @@
 # Credit Risk POC
 
-信贷变量挖掘 Claude Code 插件工程。
+面向 Claude Code 的信贷变量挖掘 Skill 工程。
 
-## 简介
+## 唯一公开入口
 
-本工程提供了一套完整的信贷变量挖掘工作流，包括数据探索、变量设计、效果评估和归档管理工具。
+安装插件后，通过下面的技能入口发起变量挖掘：
 
-## 快速开始
+```text
+/credit-risk:mining
+```
 
-### 安装插件
+## 安装
 
 ```bash
 # 添加插件市场
@@ -18,34 +20,23 @@
 /plugin install credit-risk@credit-risk-marketplace
 ```
 
-### 开始挖掘
+安装完成后，直接描述业务问题和数据位置即可，例如：`帮我做信贷变量挖掘，数据在 data/ 目录下`。
 
-```
-/credit-risk:mining
-```
+## 工程结构
 
-然后描述你的业务问题和数据位置，AI 会引导你完成完整的变量挖掘流程。
-
-## 核心功能
-
-| 功能 | 说明 |
-|------|------|
-| 数据探索 | 自动分析数据目录结构和质量 |
-| 变量设计 | 基于业务假设设计新变量 |
-| 效果评估 | 计算 IV、PSI 等评估指标 |
-| 归档管理 | 归档分析产物和变量注册 |
-
-## 目录结构
-
-```
+```text
 credit-risk-poc/
-├── credit-risk-plugin/         # 插件目录
-│   ├── skills/                 # 技能定义
-│   ├── scripts/                # 工具脚本
-│   └── references/             # 参考文档
-├── data/                       # 数据文件
-├── outputs/                    # 输出产物
-└── archives/                   # 归档目录
+├── credit-risk-plugin/
+│   ├── .claude-plugin/plugin.json
+│   ├── engine/                         # 通用引擎
+│   └── skills/mining/
+│       ├── SKILL.md                    # 运行时行为和输出约束
+│       ├── references/                 # 方法论与主题设计文档
+│       ├── scripts/                    # registry/archive 等辅助脚本
+│       └── examples/home_credit/       # 可复制的阶段化样例
+├── data/                               # 本地数据（gitignore）
+├── outputs/                            # 当前轮次产物（gitignore）
+└── archives/                           # 归档产物（gitignore）
 ```
 
 ## 依赖
@@ -54,15 +45,14 @@ credit-risk-poc/
 pip install pandas numpy scikit-learn
 ```
 
-可选：`pip install featuretools`（自动特征生成）
+如需自动特征引擎，再额外安装：
 
-## 开发规范
-
-- 变量命名：`{主题}_{具体含义}_{时间窗口}`
-- 每次推送前更新版本号
-- 中文注释和文档
+```bash
+pip install featuretools
+```
 
 ## 文档
 
-- [CLAUDE.md](./CLAUDE.md) - 开发规范和工程说明
-- [插件 README](./credit-risk-plugin/README.md) - 插件使用指南
+- [CLAUDE.md](./CLAUDE.md)：维护约定、版本同步和文档职责
+- [credit-risk-plugin/README.md](./credit-risk-plugin/README.md)：插件安装、调用和辅助脚本入口
+- [credit-risk-plugin/skills/mining/SKILL.md](./credit-risk-plugin/skills/mining/SKILL.md)：Claude 运行时技能定义

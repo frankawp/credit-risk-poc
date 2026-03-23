@@ -3,28 +3,36 @@
 变量注册管理工具 - 管理变量假设和实现状态。
 
 用法:
-    python feature_registry.py list [--theme <主题>]
-    python feature_registry.py register --name <变量名> --theme <主题> --hypothesis "<假设>"
-    python feature_registry.py update --name <变量名> --status <状态>
-    python feature_registry.py export --output <输出文件>
+    python3 feature_registry.py list [--theme <主题>]
+    python3 feature_registry.py register --name <变量名> --theme <主题> --hypothesis "<假设>"
+    python3 feature_registry.py update --name <变量名> --status <状态>
+    python3 feature_registry.py export --output <输出文件>
 
 示例:
-    python feature_registry.py list
-    python feature_registry.py register --name velocity_apply_count_7d --theme velocity --hypothesis "短期高频申请风险更高"
-    python feature_registry.py update --name velocity_apply_count_7d --status implemented
+    python3 feature_registry.py list
+    python3 feature_registry.py register --name velocity_apply_count_7d --theme velocity --hypothesis "短期高频申请风险更高"
+    python3 feature_registry.py update --name velocity_apply_count_7d --status implemented
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 
 DEFAULT_REGISTRY_PATH = Path("outputs/proposed_features/registry.json")
+VALID_STATUSES = ("proposed", "implemented", "validated", "selected", "rejected")
+
+
+def validate_status(status: str) -> str:
+    """校验变量状态。"""
+    if status not in VALID_STATUSES:
+        allowed = ", ".join(VALID_STATUSES)
+        raise ValueError(f"不支持的状态: {status}。允许值: {allowed}")
+    return status
 
 
 def load_registry(path: Path) -> dict[str, Any]:
@@ -133,7 +141,13 @@ def update_feature(
 
     # 更新字段
     if status:
-        feature["status"] = status
+        try:
+            feature["status"] = validate_status(status)
+        except ValueError as exc:
+            return {
+                "status": "error",
+                "message": str(exc),
+            }
     if hypothesis:
         feature["hypothesis"] = hypothesis
     if calculation_logic:
@@ -207,7 +221,7 @@ def main() -> None:
     reg_parser = subparsers.add_parser("register", help="注册新变量")
     reg_parser.add_argument("--name", "-n", type=str, required=True, help="变量名")
     reg_parser.add_argument("--theme", "-t", type=str, required=True, help="主题")
-    reg_parser.add_argument("--hypothesis", "-h", type=str, required=True, help="业务假设")
+    reg_parser.add_argument("--hypothesis", "-p", type=str, required=True, help="业务假设")
     reg_parser.add_argument("--direction", "-d", type=str, default="higher_is_riskier", help="预期方向")
     reg_parser.add_argument("--logic", "-l", type=str, default=None, help="计算逻辑")
     reg_parser.add_argument("--registry", "-r", type=Path, default=DEFAULT_REGISTRY_PATH, help="注册表路径")
@@ -215,8 +229,15 @@ def main() -> None:
     # update 命令
     upd_parser = subparsers.add_parser("update", help="更新变量信息")
     upd_parser.add_argument("--name", "-n", type=str, required=True, help="变量名")
-    upd_parser.add_argument("--status", "-s", type=str, default=None, help="新状态")
-    upd_parser.add_argument("--hypothesis", "-h", type=str, default=None, help="新假设")
+    upd_parser.add_argument(
+        "--status",
+        "-s",
+        type=str,
+        choices=VALID_STATUSES,
+        default=None,
+        help=f"新状态，可选: {', '.join(VALID_STATUSES)}",
+    )
+    upd_parser.add_argument("--hypothesis", "-p", type=str, default=None, help="新假设")
     upd_parser.add_argument("--logic", "-l", type=str, default=None, help="新计算逻辑")
     upd_parser.add_argument("--registry", "-r", type=Path, default=DEFAULT_REGISTRY_PATH, help="注册表路径")
 

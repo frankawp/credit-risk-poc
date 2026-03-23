@@ -8,13 +8,26 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
-import featuretools as ft
 import pandas as pd
 
-from ..config import EntityConfig, EnginePaths, AutoFeatureConfig
+from ..config import EntityConfig, EnginePaths
+
+try:
+    import featuretools as ft
+except ImportError:  # pragma: no cover - optional dependency
+    ft = None
+
+
+def _require_featuretools() -> Any:
+    """按需获取 Featuretools 模块。"""
+    if ft is None:
+        raise ImportError(
+            "EntitySetBuilder 需要安装 featuretools。"
+            " 仅使用语义特征时无需调用该构建器；若需实体层/自动特征，请运行: pip install featuretools"
+        )
+    return ft
 
 
 class EntitySetBuilder:
@@ -63,14 +76,16 @@ class EntitySetBuilder:
 
         return df
 
-    def build(self, sample_size: int | None = None) -> tuple[ft.EntitySet, dict[str, pd.DataFrame]]:
+    def build(self, sample_size: int | None = None) -> tuple[Any, dict[str, pd.DataFrame]]:
         """构建 EntitySet。
 
         返回：
             - EntitySet 对象
             - 表名到 DataFrame 的映射
         """
-        es = ft.EntitySet(id=self.name)
+        ft_module = _require_featuretools()
+        es = ft_module.EntitySet(id=self.name)
+        config_by_name = {config.name: config for config in self.entities}
 
         # 找到主实体
         main_entity = next((e for e in self.entities if e.parent is None), None)
@@ -84,7 +99,6 @@ class EntitySetBuilder:
         if sample_size and len(main_frame) > sample_size:
             main_frame = main_frame.sample(n=sample_size, random_state=42).reset_index(drop=True)
 
-        sample_ids = set(main_frame[main_entity.index])
         self._frames[main_entity.name] = main_frame
 
         # 添加主实体到 EntitySet
@@ -94,32 +108,50 @@ class EntitySetBuilder:
             index=main_entity.index,
         )
 
-        # 加载并添加子实体
-        for config in self.entities:
-            if config.name == main_entity.name:
-                continue
+        # 逐层加载子实体，确保孙表按父表主键采样
+        remaining = [config for config in self.entities if config.name != main_entity.name]
+        while remaining:
+            progressed = False
 
-            frame = self._load_frame(config, sample_ids)
-            self._frames[config.name] = frame
+            for config in remaining[:]:
+                if config.parent not in self._frames:
+                    continue
 
-            # 添加索引列
-            if config.index not in frame.columns:
-                frame[config.index] = range(len(frame))
+                parent_config = config_by_name.get(config.parent)
+                if parent_config is None:
+                    raise ValueError(f"未找到父实体配置: {config.parent}")
 
-            es = es.add_dataframe(
-                dataframe_name=config.name,
-                dataframe=frame,
-                index=config.index,
-            )
+                parent_frame = self._frames[config.parent]
+                parent_ids = set(parent_frame[parent_config.index].dropna().unique())
+                frame = self._load_frame(config, parent_ids)
 
-            # 添加关系
-            if config.parent and config.foreign_key:
-                es = es.add_relationship(
-                    parent_dataframe_name=config.parent,
-                    parent_column_name=config.foreign_key,
-                    child_dataframe_name=config.name,
-                    child_column_name=config.foreign_key,
+                if config.index not in frame.columns:
+                    frame = frame.copy()
+                    frame[config.index] = range(len(frame))
+
+                self._frames[config.name] = frame
+                es = es.add_dataframe(
+                    dataframe_name=config.name,
+                    dataframe=frame,
+                    index=config.index,
                 )
+
+                if config.foreign_key:
+                    es = es.add_relationship(
+                        parent_dataframe_name=config.parent,
+                        parent_column_name=parent_config.index,
+                        child_dataframe_name=config.name,
+                        child_column_name=config.foreign_key,
+                    )
+
+                remaining.remove(config)
+                progressed = True
+
+            if not progressed:
+                unresolved = ", ".join(
+                    f"{config.name}(parent={config.parent})" for config in remaining
+                )
+                raise ValueError(f"存在未解析的实体依赖，请检查 parent 配置: {unresolved}")
 
         return es, self._frames
 
@@ -132,7 +164,7 @@ def build_entityset_from_config(
     entity_configs: list[EntityConfig],
     paths: EnginePaths | None = None,
     sample_size: int | None = None,
-) -> tuple[ft.EntitySet, dict[str, pd.DataFrame]]:
+) -> tuple[Any, dict[str, pd.DataFrame]]:
     """从配置构建 EntitySet。
 
     快捷函数，用于从配置列表构建。

@@ -3,8 +3,8 @@
 归档工具 - 归档当前分析产物并生成摘要报告。
 
 用法:
-    python archive_run.py --topic <主题> --notes "<备注>"
-    python archive_run.py --topic "首期违约分析" --notes "验证套现假设"
+    python3 archive_run.py --topic <主题> --notes "<备注>"
+    python3 archive_run.py --topic "首期违约分析" --notes "验证套现假设"
 
 注意: 此工具只应在用户明确要求归档时执行，禁止自动归档！
 """
@@ -15,10 +15,38 @@ import argparse
 import json
 import re
 import shutil
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+
+OUTPUT_ROOT = "outputs"
+DEFAULT_OUTPUT_SUBDIRS = ("reports", "data", "proposed_features")
+
+
+def _load_json_if_exists(path: Path) -> dict[str, Any]:
+    """按需加载 JSON。"""
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text())
+
+
+def _collect_archive_targets(workspace_root: Path) -> list[Path]:
+    """收集允许归档的分析产物目录。"""
+    outputs_dir = workspace_root / OUTPUT_ROOT
+    if not outputs_dir.exists() or not outputs_dir.is_dir():
+        return []
+    if not any(outputs_dir.iterdir()):
+        return []
+    return [outputs_dir]
+
+
+def _reset_output_workspace(workspace_root: Path) -> None:
+    """重建空输出目录，便于下一轮分析直接开始。"""
+    outputs_dir = workspace_root / OUTPUT_ROOT
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    for subdir in DEFAULT_OUTPUT_SUBDIRS:
+        (outputs_dir / subdir).mkdir(parents=True, exist_ok=True)
 
 
 def archive_run(
@@ -43,6 +71,17 @@ def archive_run(
     datetime_prefix = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     archive_dir = workspace_root / archive_dir_name / "analysis_run" / f"{datetime_prefix}_{topic_slug}"
 
+    # 只归档分析产物，不触碰技能源码和说明文件
+    top_level_entries = _collect_archive_targets(workspace_root)
+
+    if not top_level_entries:
+        _reset_output_workspace(workspace_root)
+        return {
+            "status": "warning",
+            "message": "没有可归档的内容",
+            "archive_dir": str(archive_dir),
+        }
+
     if archive_dir.exists():
         return {
             "status": "error",
@@ -56,19 +95,6 @@ def archive_run(
     conclusion_dir.mkdir(parents=True, exist_ok=False)
     project_dir.mkdir(parents=True, exist_ok=False)
 
-    # 收集要归档的顶层条目（排除 data/ 和 archives/）
-    top_level_entries = [
-        item for item in workspace_root.iterdir()
-        if item.name not in {"data", "archives", archive_dir_name} and not item.name.startswith(".")
-    ]
-
-    if not top_level_entries:
-        return {
-            "status": "warning",
-            "message": "没有可归档的内容",
-            "archive_dir": str(archive_dir),
-        }
-
     # 移动文件到归档目录
     archived_entries = []
     for item in top_level_entries:
@@ -78,22 +104,17 @@ def archive_run(
         except Exception as e:
             print(f"⚠️ 无法移动 {item.name}: {e}")
 
+    _reset_output_workspace(workspace_root)
+
     # 生成摘要报告
     summary_path = conclusion_dir / "summary.md"
     artifacts_path = conclusion_dir / "artifacts.json"
 
     # 尝试读取 outputs 目录中的统计信息
     outputs_dir = project_dir / "outputs"
-    candidate_summary = {}
-    selection_summary = {}
-
-    candidate_summary_path = outputs_dir / "candidate_pool" / "candidate_pool_summary.json"
-    if candidate_summary_path.exists():
-        candidate_summary = json.loads(candidate_summary_path.read_text())
-
-    selection_summary_path = outputs_dir / "selection" / "feature_selection_report.json"
-    if selection_summary_path.exists():
-        selection_summary = json.loads(selection_summary_path.read_text())
+    candidate_summary = _load_json_if_exists(outputs_dir / "candidate_pool" / "candidate_pool_summary.json")
+    selection_summary = _load_json_if_exists(outputs_dir / "selection" / "feature_selection_report.json")
+    report_count = len(list((outputs_dir / "reports").glob("*.md"))) if (outputs_dir / "reports").exists() else 0
 
     # 写入摘要
     summary_content = f"""# 本轮挖掘摘要
@@ -104,16 +125,20 @@ def archive_run(
 
 ## 统计信息
 
-- 候选池规模：{candidate_summary.get('candidate_pool_shape', 'N/A')}
+- 候选池行数：{candidate_summary.get('row_count', 'N/A')}
+- 候选特征数：{candidate_summary.get('total_feature_count', candidate_summary.get('candidate_pool_shape', 'N/A'))}
 - 自动特征数：{candidate_summary.get('auto_feature_count', 'N/A')}
 - 语义特征数：{candidate_summary.get('semantic_feature_count', 'N/A')}
 - 组合特征数：{candidate_summary.get('composite_feature_count', 'N/A')}
 - 入选特征数：{selection_summary.get('selected_feature_count', 'N/A')}
+- 归档报告数：{report_count}
 
 ## 归档内容
 
 - 归档目录：project/
 - 已归档条目：{len(archived_entries)} 个
+- 归档对象：{', '.join(archived_entries)}
+- 工作区已重建空输出目录：{OUTPUT_ROOT}/
 """
     summary_path.write_text(summary_content)
 
@@ -125,11 +150,13 @@ def archive_run(
         "archived_at": datetime.now().isoformat(),
         "archived_entries": archived_entries,
         "statistics": {
-            "candidate_pool_shape": candidate_summary.get("candidate_pool_shape"),
+            "row_count": candidate_summary.get("row_count"),
+            "total_feature_count": candidate_summary.get("total_feature_count"),
             "auto_feature_count": candidate_summary.get("auto_feature_count"),
             "semantic_feature_count": candidate_summary.get("semantic_feature_count"),
             "composite_feature_count": candidate_summary.get("composite_feature_count"),
             "selected_feature_count": selection_summary.get("selected_feature_count"),
+            "report_count": report_count,
         },
     }
     artifacts_path.write_text(json.dumps(artifacts_payload, indent=2, ensure_ascii=False))
@@ -180,7 +207,7 @@ def main() -> None:
     print(f"备注: {args.notes or '无'}")
     print(f"工作区: {args.workspace or Path.cwd()}")
     print()
-    print("⚠️ 此操作将移动 outputs/ 等目录到归档位置")
+    print("⚠️ 此操作只会移动 outputs/ 下的分析产物，并在归档后重建空 outputs/ 目录")
     print()
 
     response = input("确认归档？(y/N): ")

@@ -1,122 +1,75 @@
 # Credit Risk Plugin
 
-信贷变量挖掘智能伙伴 - 提供数据探索、变量设计、效果评估的通用工作流。
+信贷变量挖掘智能伙伴。唯一公开技能入口为 `/credit-risk:mining`。
 
 ## 安装
 
-### 步骤 1：添加插件市场
-
 ```bash
-# 在 Claude Code 中运行
+# 在 Claude Code 中添加市场
 /plugin marketplace add https://github.com/frankawp/credit-risk-poc
-```
-
-### 步骤 2：安装插件
-
-添加市场后，安装插件：
-
-```bash
-/plugin install credit-risk@credit-risk-marketplace
-```
-
-### 步骤 3：使用技能
-
-```
-在claude中直接提需求：“帮我做信贷变量挖掘，数据在 data/目录下”
-```
-
----
-
-## 本地测试
-
-在发布前可以本地测试：
-
-```bash
-# 克隆仓库
-git clone https://github.com/frankawp/credit-risk-poc.git
-
-# 添加本地市场
-/plugin marketplace add ./credit-risk-poc
 
 # 安装插件
 /plugin install credit-risk@credit-risk-marketplace
 ```
 
----
+本地调试时也可以直接添加本仓库作为市场：
 
-## 核心功能
+```bash
+git clone https://github.com/frankawp/credit-risk-poc.git
+cd credit-risk-poc
+/plugin marketplace add .
+/plugin install credit-risk@credit-risk-marketplace
+```
 
-1. **数据探索** - 自动分析数据目录结构和质量
-2. **变量设计** - 基于业务假设设计变量
-3. **效果评估** - 评估变量预测能力
-4. **归档管理** - 归档分析产物
+## 使用
+
+安装完成后，直接在 Claude Code 中输入：
+
+```text
+/credit-risk:mining
+```
+
+然后给出业务目标、目标变量和数据位置。Skill 会按“探索 → 设计 → 实现 → 验证 → 迭代”推进，并把当前轮次的产物写到 `outputs/`。
+
+## 目录说明
+
+```text
+credit-risk-plugin/
+├── .claude-plugin/plugin.json
+├── engine/                         # 通用引擎
+└── skills/mining/
+    ├── SKILL.md                    # 运行时技能定义
+    ├── references/                 # 方法论和主题设计
+    ├── scripts/
+    │   ├── feature_registry.py     # 变量注册表
+    │   └── archive_run.py          # 归档当前 outputs/
+    └── examples/home_credit/       # 阶段化样例
+```
+
+## 辅助脚本
+
+```bash
+# 查看或更新变量注册表
+python3 credit-risk-plugin/skills/mining/scripts/feature_registry.py --help
+
+# 仅在用户明确要求时归档当前 outputs/
+python3 credit-risk-plugin/skills/mining/scripts/archive_run.py --help
+```
 
 ## 依赖
 
-### 基础依赖（必需）
+基础依赖：
 
 ```bash
 pip install pandas numpy scikit-learn
 ```
 
-### 可选依赖
+自动特征引擎额外依赖：
 
 ```bash
-# 自动特征生成功能
 pip install featuretools
 ```
 
-## 目录结构
-
-```
-credit-risk-plugin/
-├── .claude-plugin/
-│   └── plugin.json          # 插件清单
-├── skills/
-│   └── mining/
-│       └── SKILL.md         # 核心技能定义
-├── scripts/                 # 工具脚本
-│   ├── data_explorer.py     # 数据探索
-│   ├── feature_evaluator.py # 变量评估
-│   ├── feature_registry.py  # 变量注册
-│   ├── archive_run.py       # 归档工具
-│   └── auto_features.py     # 自动特征（可选）
-├── references/              # 参考文档
-│   ├── methodology.md
-│   └── variable_design_guide.md
-└── README.md
-```
-
-## 工作流
-
-```
-探索 → 设计 → 实现 → 验证 → 迭代
-```
-
-1. **探索**：理解数据结构和业务含义
-2. **设计**：提出变量假设
-3. **实现**：编写变量计算代码
-4. **验证**：评估变量效果
-5. **迭代**：根据效果优化
-
 ## 示例
 
-参见 [examples/home_credit/](../examples/home_credit/) 目录下的业务案例。
-
----
-
-## 常用命令
-
-```bash
-# 查看已添加的市场
-/plugin marketplace list
-
-# 更新市场
-/plugin marketplace update credit-risk-marketplace
-
-# 查看已安装的插件
-/plugin list
-
-# 卸载插件
-/plugin uninstall credit-risk@credit-risk-marketplace
-```
+可复制的阶段化样例位于 [skills/mining/examples/home_credit](./skills/mining/examples/home_credit/README.md)。

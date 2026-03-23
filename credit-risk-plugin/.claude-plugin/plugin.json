@@ -1,7 +1,7 @@
 {
   "name": "credit-risk",
   "description": "信贷变量挖掘智能伙伴 - 提供数据探索、变量设计、效果评估的通用工作流",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "author": {
     "name": "frankawp"
   },

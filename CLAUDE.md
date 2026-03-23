@@ -1,130 +1,54 @@
-# Credit Risk Plugin - 信贷变量挖掘 Claude Code 插件
+# Credit Risk Plugin Maintainers Guide
 
-## 工程定位
+本仓库不是通用软件工程模板，而是一个面向 Claude Code 的信贷变量挖掘 Skill 工程。维护时优先保证：
 
-本工程是一个 **Claude Code 插件**，提供信贷变量挖掘的通用工作流和工具。
+1. Claude 能按文档找到正确入口。
+2. 样例代码能被 Claude 正确模仿。
+3. 辅助脚本可直接运行。
+4. 归档不会破坏 Skill 本体。
 
-### 主要交付物
+## Source Of Truth
 
-**credit-risk-plugin**：一个可独立安装的 Claude Code 插件，提供：
-- 数据探索工具
-- 变量设计方法论
-- 变量评估工具
-- 归档管理工具
+- 唯一公开技能入口：`/credit-risk:mining`
+- 运行时技能定义：`credit-risk-plugin/skills/mining/SKILL.md`
+- 方法论文档：`credit-risk-plugin/skills/mining/references/`
+- 辅助脚本：`credit-risk-plugin/skills/mining/scripts/`
+- prompt asset / 样例：`credit-risk-plugin/skills/mining/examples/`
 
-### 核心特点
+不要再在文档里写不存在的 `credit-risk-plugin/scripts/`、`credit-risk-plugin/references/` 或 `skills/feature-mining/`。
 
-- **无外部包依赖**：插件仅依赖基础数据分析库（pandas, numpy, scikit-learn）
-- **通用工具**：脚本适用于任何变量挖掘场景，不耦合具体业务
-- **业务示例独立**：示例代码展示如何使用插件
+## 维护约定
 
----
+- `SKILL.md` 负责运行时行为、输出目录和工作流约束。
+- `credit-risk-plugin/README.md` 负责安装、调用方式和辅助脚本入口。
+- 根 `README.md` 只负责工程概览和公开入口。
+- examples 是 Claude 会模仿的 prompt asset，必须与当前 API 保持一致，可运行优先于花哨写法。
 
-## 项目结构
+## 依赖约束
 
-```
-credit-risk-poc/
-├── credit-risk-plugin/              # 插件目录
-│   ├── .claude-plugin/
-│   │   └── plugin.json              # 插件清单
-│   ├── skills/
-│   │   └── mining/
-│   │       └── SKILL.md             # 核心技能定义
-│   ├── scripts/                     # 通用工具
-│   │   ├── data_explorer.py         # 数据探索
-│   │   ├── feature_evaluator.py     # 变量评估
-│   │   ├── feature_registry.py      # 变量注册
-│   │   ├── archive_run.py           # 归档工具
-│   │   └── auto_features.py         # 自动特征（可选）
-│   └── references/                  # 参考文档
-│       ├── methodology.md
-│       └── variable_design_guide.md
-├── examples/                        # 业务示例
-│   └── home_credit/
-│       ├── features/                # 变量实现模板
-│       └── README.md
-├── data/                            # 数据文件（gitignore）
-├── outputs/                         # 输出产物（gitignore）
-└── archives/                        # 归档目录（gitignore）
-```
+- 基础依赖：`pandas`、`numpy`、`scikit-learn`
+- `featuretools` 是自动特征和 EntitySet 构建的可选依赖
+- 未安装 `featuretools` 时，语义特征路径和纯文档/脚本路径必须仍然可用
 
----
+## 版本管理
 
-## 使用方法
+每次对插件公开行为或修复发布时，同步更新：
 
-### 加载插件
+1. `credit-risk-plugin/.claude-plugin/plugin.json`
+2. `.claude-plugin/marketplace.json`
+
+版本建议：
+
+- patch：修复脚本、样例、文档、非破坏性行为
+- minor：公开命令、公开目录结构或用户可见能力变化
+- major：不兼容的入口或行为变化
+
+## 发布前检查
 
 ```bash
-claude --plugin-dir ./credit-risk-plugin
+python3 -m pytest
+python3 credit-risk-plugin/skills/mining/scripts/feature_registry.py --help
+python3 credit-risk-plugin/skills/mining/scripts/archive_run.py --help
 ```
 
-### 调用技能
-
-```
-/credit-risk:mining
-```
-
-### 使用工具脚本
-
-```bash
-# 数据探索
-python credit-risk-plugin/scripts/data_explorer.py data/raw/
-
-# 变量评估
-python credit-risk-plugin/scripts/feature_evaluator.py outputs/features.parquet --target TARGET
-
-# 变量注册
-python credit-risk-plugin/scripts/feature_registry.py register --name my_feature --theme velocity --hypothesis "业务假设"
-```
-
----
-
-## 开发规范
-
-### 变量设计
-
-- 每个新变量需记录：变量名、计算逻辑、业务假设、预期效果
-- 变量命名：`{theme}_{具体含义}_{时间窗口}`
-- 效果验证后更新状态（proposed/implemented/validated/selected/rejected）
-
-### 代码风格
-
-- 中文注释和文档
-- 类型注解
-- 通用性：不耦合具体业务数据
-
-### 版本管理
-
-- **Push 前必须修改版本号**：每次推送到远程仓库前，需同步更新以下两个文件中的 version 字段：
-  1. `credit-risk-plugin/.claude-plugin/plugin.json`
-  2. `.claude-plugin/marketplace.json`
-- 版本号格式：`major.minor.patch`（如 1.1.2）
-- 小修复/bugfix：增加 patch 版本号
-- 新功能：增加 minor 版本号
-- 重大变更：增加 major 版本号
-
-### 文档更新
-
-- 新增变量时更新 `outputs/proposed_features/registry.json`
-- 方法论变更时更新 `credit-risk-plugin/references/`
-
----
-
-## AI 在变量挖掘中的角色
-
-AI 不是"脚本调度器"，而是"变量挖掘伙伴"。
-
-### 核心能力
-
-1. **数据理解**：主动探索数据结构、分布、业务含义
-2. **假设设计**：基于业务知识提出变量假设
-3. **代码实现**：动态生成 Python 函数实现变量
-4. **效果验证**：评估变量效果，迭代优化
-5. **知识沉淀**：记录假设来源、迭代过程、效果证据
-
-### 工作原则
-
-- 先理解数据，再设计变量
-- 每个变量都有业务假设支撑
-- 效果不好时主动调整策略
-- 对用户的业务问题保持敏感
+如果环境里安装了 Claude Code，再额外做一次本地安装冒烟，确认公开入口仍是 `/credit-risk:mining`。

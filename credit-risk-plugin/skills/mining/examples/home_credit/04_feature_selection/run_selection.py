@@ -456,7 +456,7 @@ def step3_mark_selected(
 
 if __name__ == "__main__":
     # 假设已有候选特征矩阵
-    # from examples.home_credit.02_feature_generation import run_pipeline
+    # 直接参考 ../02_feature_generation/dual_engine.py 中的 run_pipeline 调用方式
     # feature_matrix = run_pipeline(...)
 
     output_dir = Path("outputs/run_001/selection")

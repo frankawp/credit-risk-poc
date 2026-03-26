@@ -9,13 +9,16 @@
 3. 合并候选池
 """
 
+import sys
 from pathlib import Path
 
 import pandas as pd
 
-from engine import AutoFeatureConfig
-from engine.auto import generate_auto_features, check_featuretools_available
-from engine.semantic import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+from mining.engine import AutoFeatureConfig
+from mining.engine.auto import generate_auto_features, check_featuretools_available
+from mining.engine.semantic import (
     generate_semantic_features,
     list_available_themes,
     get_theme_description,

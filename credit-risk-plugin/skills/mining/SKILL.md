@@ -125,7 +125,7 @@ ls outputs/ 2>/dev/null | head -5
 ```python
 # 参考 examples/home_credit/00_data_explorer/explore_data.py
 import sys
-sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../")
 
 from pathlib import Path
 
@@ -173,10 +173,10 @@ report = explore_data_directory(
 # 参考 examples/home_credit/01_entity_layer/build_entityset.py 样例
 # 根据实际数据集手动配置实体关系
 import sys
-sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../")
 
-from engine.config import EntityConfig, EnginePaths
-from engine.entity import EntitySetBuilder
+from mining.engine.config import EntityConfig, EnginePaths
+from mining.engine.entity import EntitySetBuilder
 
 # 定义实体关系（根据实际数据调整）
 configs = [
@@ -234,9 +234,9 @@ entityset, frames = builder.build(sample_size=3000)
 **引擎工具**：
 ```python
 import sys
-sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../")
 
-from engine.semantic import list_available_themes, get_theme_description
+from mining.engine.semantic import list_available_themes, get_theme_description
 
 # 查看可用主题
 themes = list_available_themes()
@@ -303,10 +303,10 @@ def build_{theme}_features(frames: dict[str, pd.DataFrame], anchor: pd.DataFrame
 **引擎工具**：
 ```python
 import sys
-sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../")
 
-from engine.auto import generate_auto_features, check_featuretools_available
-from engine.semantic import generate_semantic_features
+from mining.engine.auto import generate_auto_features, check_featuretools_available
+from mining.engine.semantic import generate_semantic_features
 
 # 自动特征（需安装 featuretools）
 if check_featuretools_available():
@@ -357,10 +357,10 @@ result = generate_semantic_features(frames, anchor, themes=["velocity", "cashout
 **引擎工具**：
 ```python
 import sys
-sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../")
 
-from engine.selection import run_feature_selection
-from engine.config import SelectionConfig
+from mining.engine.selection import run_feature_selection
+from mining.engine.config import SelectionConfig
 
 config = SelectionConfig(
     id_col="entity_id",
@@ -375,7 +375,7 @@ result = run_feature_selection(feature_matrix, config, output_dir=Path("outputs/
 
 **稳定性检查**：
 ```python
-from engine.selection import (
+from mining.engine.selection import (
     calculate_psi,
     check_time_stability,
     check_slice_consistency,
@@ -406,7 +406,7 @@ slice_report = check_slice_consistency(
 
 **高级筛选**：
 ```python
-from engine.selection import (
+from mining.engine.selection import (
     detect_near_duplicates,
     evaluate_model_gain,
     evaluate_incremental_gain,
@@ -505,9 +505,9 @@ incremental_report = evaluate_incremental_gain(
 
 ```python
 import sys
-sys.path.insert(0, "$CLAUDE_SKILL_DIR/../../")
+sys.path.insert(0, "$CLAUDE_SKILL_DIR/../")
 
-from engine.composite import CompositeFeatureSpec, build_composite_features, create_cross_feature
+from mining.engine.composite import CompositeFeatureSpec, build_composite_features, create_cross_feature
 
 specs = [
     create_cross_feature(

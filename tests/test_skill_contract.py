@@ -159,13 +159,13 @@ def test_archive_run_only_moves_outputs_and_recreates_workspace(tmp_path: Path) 
 
 
 def test_entity_builder_imports_without_featuretools() -> None:
-    builder_path = PLUGIN_ROOT / "engine" / "entity" / "builder.py"
+    builder_path = SKILL_ROOT / "engine" / "entity" / "builder.py"
     code = textwrap.dedent(
         f"""
         import builtins
         import sys
 
-        sys.path.insert(0, {str(PLUGIN_ROOT)!r})
+        sys.path.insert(0, {str(PLUGIN_ROOT / "skills")!r})
 
         original_import = builtins.__import__
 
@@ -176,7 +176,7 @@ def test_entity_builder_imports_without_featuretools() -> None:
 
         builtins.__import__ = fake_import
 
-        import engine.entity.builder as builder
+        import mining.engine.entity.builder as builder
 
         assert builder.ft is None
         try:

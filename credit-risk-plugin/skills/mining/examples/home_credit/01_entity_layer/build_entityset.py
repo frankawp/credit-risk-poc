@@ -13,8 +13,14 @@ Home Credit 数据集 EntitySet 构建。
       └── bureau_balance (征信流水)
 """
 
-from engine import EntityConfig, EnginePaths
-from engine.entity import EntitySetBuilder, build_entityset_from_config
+import sys
+
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+from mining.engine import EntityConfig, EnginePaths
+from mining.engine.entity import EntitySetBuilder, build_entityset_from_config
 
 
 # ============================================================================

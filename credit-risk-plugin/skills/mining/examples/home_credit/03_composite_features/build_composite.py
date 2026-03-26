@@ -9,12 +9,15 @@
 3. Rule Crosses - 规则交叉类（多条件组合）
 """
 
+import sys
 from pathlib import Path
 
 import pandas as pd
 import numpy as np
 
-from engine.composite import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+from mining.engine.composite import (
     CompositeFeatureSpec,
     build_composite_features,
     create_cross_feature,

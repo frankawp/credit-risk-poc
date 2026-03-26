@@ -367,7 +367,7 @@ def _generate_relationship_guide(report: dict, output_dir: Path) -> None:
         "## EntityConfig 配置示例",
         "",
         "```python",
-        "from engine import EntityConfig",
+        "from mining.engine import EntityConfig",
         "",
         "configs = [",
     ])

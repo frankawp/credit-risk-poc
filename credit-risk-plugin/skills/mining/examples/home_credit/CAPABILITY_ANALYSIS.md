@@ -1,6 +1,6 @@
 # 代码能力分析报告
 
-对比工作流程与现有 engine/scripts 代码能力。
+对比工作流程与现有 `skills/mining/engine` 和 `scripts` 代码能力。
 
 ## 工作流程 vs 现有能力
 
@@ -27,10 +27,10 @@ Raw Tables
 │ 1. Entity Layer (EntitySet / Join Graph / Key Mapping)      │
 ├─────────────────────────────────────────────────────────────┤
 │ 现有能力:                                                    │
-│   ✅ engine/entity/builder.py                               │
+│   ✅ skills/mining/engine/entity/builder.py                 │
 │     - EntitySetBuilder 类                                   │
 │     - build_entityset_from_config()                         │
-│   ✅ engine/config.py                                       │
+│   ✅ skills/mining/engine/config.py                         │
 │     - EntityConfig 数据类                                   │
 │                                                             │
 │ 状态: 完整                                                  │
@@ -41,10 +41,10 @@ Raw Tables
 │ 2. Auto Feature Engine (Featuretools)                       │
 ├─────────────────────────────────────────────────────────────┤
 │ 现有能力:                                                    │
-│   ✅ engine/auto/generator.py                               │
+│   ✅ skills/mining/engine/auto/generator.py                 │
 │     - generate_auto_features()                              │
 │     - check_featuretools_available()                        │
-│   ✅ engine/config.py                                       │
+│   ✅ skills/mining/engine/config.py                         │
 │     - AutoFeatureConfig                                     │
 │                                                             │
 │ 状态: 完整（依赖 Featuretools）                              │
@@ -55,13 +55,13 @@ Raw Tables
 │ 3. Semantic Feature Engine (Business Rules)                 │
 ├─────────────────────────────────────────────────────────────┤
 │ 现有能力:                                                    │
-│   ✅ engine/semantic/generator.py                           │
+│   ✅ skills/mining/engine/semantic/generator.py             │
 │     - generate_semantic_features()                          │
 │     - list_available_themes()                               │
 │     - get_theme_description()                               │
-│   ✅ engine/semantic/registry.py                            │
+│   ✅ skills/mining/engine/semantic/registry.py              │
 │     - ThemeRegistry 类                                      │
-│   ✅ engine/semantic/base.py                                │
+│   ✅ skills/mining/engine/semantic/base.py                  │
 │     - ThemeBase 抽象类                                      │
 │                                                             │
 │ 状态: 完整                                                  │
@@ -72,7 +72,7 @@ Raw Tables
 │ 4. Composite Feature Builder (Ratios / Interactions)        │
 ├─────────────────────────────────────────────────────────────┤
 │ 现有能力:                                                    │
-│   ✅ engine/composite/builder.py                            │
+│   ✅ skills/mining/engine/composite/builder.py              │
 │     - build_composite_features()                            │
 │     - create_cross_feature()                                │
 │     - create_flag_feature()                                 │
@@ -86,10 +86,10 @@ Raw Tables
 │ 5. Basic Filtering (Null / Constant / Coverage / Duplicates)│
 ├─────────────────────────────────────────────────────────────┤
 │ 现有能力:                                                    │
-│   ✅ engine/selection/basic_filters.py                      │
+│   ✅ skills/mining/engine/selection/basic_filters.py        │
 │     - apply_basic_filters()                                 │
 │     - FilterResult 数据类                                   │
-│   ✅ engine/selection/advanced.py                           │
+│   ✅ skills/mining/engine/selection/advanced.py             │
 │     - detect_duplicates()                                   │
 │     - detect_near_duplicates()                              │
 │                                                             │
@@ -107,10 +107,10 @@ Raw Tables
 │ 6. Supervised Selection (Univariate / Model Gain)           │
 ├─────────────────────────────────────────────────────────────┤
 │ 现有能力:                                                    │
-│   ✅ engine/selection/univariate.py                         │
+│   ✅ skills/mining/engine/selection/univariate.py           │
 │     - evaluate_univariate()                                 │
 │     - 支持指标: ROC-AUC, PR-AUC, Recall@TopK, Lift, IV      │
-│   ✅ engine/selection/advanced.py                           │
+│   ✅ skills/mining/engine/selection/advanced.py             │
 │     - evaluate_model_gain()                                 │
 │     - evaluate_incremental_gain()                           │
 │                                                             │
@@ -133,7 +133,7 @@ Raw Tables
 │ 8. Stability Check (PSI / Slice Consistency)                │
 ├─────────────────────────────────────────────────────────────┤
 │ 现有能力:                                                    │
-│   ✅ engine/selection/stability.py                          │
+│   ✅ skills/mining/engine/selection/stability.py            │
 │     - calculate_psi()                                       │
 │     - check_feature_stability()                             │
 │     - check_time_stability()                                │
@@ -162,15 +162,15 @@ Raw Tables
 | 流程阶段 | 模块 | 状态 | 说明 |
 |---------|------|------|------|
 | Data Exploration | examples/.../00_data_explorer | ✅ 完整 | 主键/外键检测、关系推断 |
-| Entity Layer | engine/entity | ✅ 完整 | |
-| Auto Features | engine/auto | ✅ 完整 | 依赖 Featuretools |
-| Semantic Features | engine/semantic | ✅ 完整 | |
-| Composite Features | engine/composite | ✅ 完整 | |
-| Basic Filtering | engine/selection/basic_filters | ✅ 完整 | |
-| Supervised Selection | engine/selection/univariate | ✅ 完整 | |
-| Advanced Selection | engine/selection/advanced | ✅ 完整 | 模型增益/重复检测 |
-| Correlation Grouping | engine/selection/basic_filters | ✅ 完整 | |
-| Stability Check | engine/selection/stability | ✅ 完整 | PSI/时间分片/分组一致性 |
+| Entity Layer | skills/mining/engine/entity | ✅ 完整 | |
+| Auto Features | skills/mining/engine/auto | ✅ 完整 | 依赖 Featuretools |
+| Semantic Features | skills/mining/engine/semantic | ✅ 完整 | |
+| Composite Features | skills/mining/engine/composite | ✅ 完整 | |
+| Basic Filtering | skills/mining/engine/selection/basic_filters | ✅ 完整 | |
+| Supervised Selection | skills/mining/engine/selection/univariate | ✅ 完整 | |
+| Advanced Selection | skills/mining/engine/selection/advanced | ✅ 完整 | 模型增益/重复检测 |
+| Correlation Grouping | skills/mining/engine/selection/basic_filters | ✅ 完整 | |
+| Stability Check | skills/mining/engine/selection/stability | ✅ 完整 | PSI/时间分片/分组一致性 |
 | Registry & Archive | scripts/ | ✅ 完整 | |
 
 ## 目录结构
@@ -215,7 +215,7 @@ report = explore_data_directory(
 )
 ```
 
-### engine/selection/stability.py
+### skills/mining/engine/selection/stability.py
 
 稳定性检查模块：
 
@@ -230,7 +230,7 @@ report = check_time_stability(frame, time_col="MONTHS_BALANCE")
 report = check_slice_consistency(frame, slice_col="CHANNEL_TYPE")
 ```
 
-### engine/selection/advanced.py
+### skills/mining/engine/selection/advanced.py
 
 高级筛选模块：
 

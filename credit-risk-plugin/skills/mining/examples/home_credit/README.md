@@ -1,6 +1,6 @@
 # Home Credit 示例
 
-这个目录展示一套可复制的信贷变量挖掘流程，用来说明如何把 `engine/` 和 `skills/mining/` 组合起来使用。
+这个目录展示一套可复制的信贷变量挖掘流程，用来说明如何使用 `skills/mining/engine/` 这套专用挖掘代码。
 
 ## 重要说明
 
@@ -36,10 +36,10 @@ home_credit/
 ## 关键调用形状
 
 ```python
-from engine.auto import generate_auto_features
-from engine.semantic import generate_semantic_features
-from engine.selection import run_feature_selection
-from engine.composite import build_composite_features
+from mining.engine.auto import generate_auto_features
+from mining.engine.semantic import generate_semantic_features
+from mining.engine.selection import run_feature_selection
+from mining.engine.composite import build_composite_features
 
 auto_result = generate_auto_features(
     entityset=entityset,

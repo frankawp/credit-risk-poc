@@ -6,7 +6,7 @@
 
 ### 1. 创建设计文档
 
-在 `engine/semantic/themes/` 目录下创建 `{theme}.py` 文件。
+在 `skills/mining/engine/semantic/themes/` 目录下创建 `{theme}.py` 文件。
 
 **文件命名**：`{英文标识}.py`，例如 `fraud.py`
 
@@ -52,7 +52,7 @@ class FraudTheme(ThemeBase):
 
 ### 3. 注册主题
 
-在 `engine/semantic/themes/__init__.py` 中添加导出：
+在 `skills/mining/engine/semantic/themes/__init__.py` 中添加导出：
 
 ```python
 from .fraud import FraudTheme

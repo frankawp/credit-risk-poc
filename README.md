@@ -28,8 +28,8 @@
 credit-risk-poc/
 ├── credit-risk-plugin/
 │   ├── .claude-plugin/plugin.json
-│   ├── engine/                         # 通用引擎
 │   └── skills/mining/
+│       ├── engine/                     # 专用挖掘引擎
 │       ├── SKILL.md                    # 运行时行为和输出约束
 │       ├── references/                 # 方法论与主题设计文档
 │       ├── scripts/                    # registry/archive 等辅助脚本

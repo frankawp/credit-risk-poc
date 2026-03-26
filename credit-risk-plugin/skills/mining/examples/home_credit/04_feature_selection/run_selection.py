@@ -16,12 +16,15 @@
 - feature_selection_report.md - 筛选报告
 """
 
+import sys
 from pathlib import Path
 
 import pandas as pd
 
-from engine import SelectionConfig, EnginePaths
-from engine.selection import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+from mining.engine import SelectionConfig, EnginePaths
+from mining.engine.selection import (
     run_feature_selection,
     apply_basic_filters,
     evaluate_univariate,

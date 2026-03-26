@@ -36,8 +36,8 @@ cd credit-risk-poc
 ```text
 credit-risk-plugin/
 ├── .claude-plugin/plugin.json
-├── engine/                         # 通用引擎
 └── skills/mining/
+    ├── engine/                     # 专用挖掘引擎
     ├── SKILL.md                    # 运行时技能定义
     ├── references/                 # 方法论和主题设计
     ├── scripts/
